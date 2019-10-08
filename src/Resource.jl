@@ -1,5 +1,3 @@
-using Dates
-
 abstract type AbstractResource end
 
 
@@ -33,10 +31,10 @@ mutable struct Resource <: AbstractResource
     calendar::Calendar
     offperiods::Array{Offperiod}
 
-    Resource(type::String,name::String) = new(string(type, "_" , name),type,name)
+    Resource(type::String,name::String) = new(string(type, "_" , name),type,name,Calendar(),Calendar(),Offperiod[])
 end
 
 function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)
-    resource.workpattern = WorkPattern(oddcalendar,evencalendar)
+    resource.workpattern = oddcalendar + evencalendar
 
 end

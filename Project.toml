@@ -3,6 +3,10 @@ uuid = "9130f150-e99a-11e9-06fb-a56735eead42"
 authors = ["Henrik Bøgedal Breddam"]
 version = "0.1.0"
 
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
+
 [compat]
 julia = "1.1"
 

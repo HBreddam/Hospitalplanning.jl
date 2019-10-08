@@ -1,7 +1,7 @@
 using Revise
 using Dates
-using Hospitalplanning
 using Debugger
+using Hospitalplanning
 HP = Hospitalplanning
 
 
@@ -15,7 +15,12 @@ columns = [(:Visits,"Consultation"),(:Telefon,"Telephone"),(:TTE,"TTE"),(:AEKG,"
 HP.readPatientTable(path,sheet,columns,mastercalendar)
 
 path_resourceOverview = "C:/Users/hebb/OneDrive - Danmarks Tekniske Universitet/Project/RH/Data/Sample data/GUCHamb_Timeslots.xlsx"
-sheet_resourceOverview = "GUCH AMB"
+sheet_amb = "GUCH AMB"
+sheet_resources = "External"
 
-HP.readWorkPattern(path_resourceOverview,sheet_resourceOverview)
-using PkgTemplates
+GUCHAmb_resources = Hospitalplanning.readWorkPattern(path_resourceOverview,sheet_amb)
+external_resources = Hospitalplanning.readWorkPattern(path_resourceOverview,sheet_resources)
+HP.generateCalendarFromPattern!(resources,mastercalendar)
+resources
+HP.generateRandomCalendar!(resources,0.8)
+resources
