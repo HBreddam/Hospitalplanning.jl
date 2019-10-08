@@ -1,7 +1,7 @@
 using Revise
 using Dates
 using Hospitalplanning
-using Debugg
+using Debugger
 HP = Hospitalplanning
 
 
@@ -19,19 +19,3 @@ sheet_resourceOverview = "GUCH AMB"
 
 HP.readWorkPattern(path_resourceOverview,sheet_resourceOverview)
 using PkgTemplates
-t = Template(
-          user="HBreddam",
-          license="MIT",
-          authors=["Henrik Bøgedal Breddam"],
-          julia_version=v"1.1",
-          plugins=[
-              TravisCI(),
-              Codecov(),
-              Coveralls(),
-              AppVeyor(),
-              GitHubPages(),
-              CirrusCI(),
-          ]
-      )
-
-generate("Hospitalplanning",t)
