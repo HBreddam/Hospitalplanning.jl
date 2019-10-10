@@ -3,7 +3,7 @@ using DataFrames
 using Random
 
 
-function generateTreatmentplan(row::DataFrameRow,bestord::Date,columns)
+function generateTreatmentplan(row::DataFrameRow,bestord::Pair{Int64,Date},columns::Dict{Symbol,String})
     treatmentplan = []
         for col in columns
             if !ismissing(row[col[1]])
@@ -20,15 +20,15 @@ end
 
 function readPatientTable(path,sheet,columns,mastercalendar)
     patientOverview = DataFrame(XLSX.readtable(path,sheet)...)
-    patients = []
+    patients = Patient[]
     for row in eachrow(patientOverview)
         if row.Kategori === missing
             continue
         end
         for i = 1:Int(row.Antal)
-            bestord = rand(mastercalendar.workdays)
+            bestord = rand(mastercalendar)
             treatmentplan = generateTreatmentplan(row,bestord,columns)
-            push!(patients,Patient(string(row.Kategori, "_" , i),0,row.Diagnoser1,treatmentplan ))
+            addNewPatient!(patients,string(row.Kategori, "_" , i),0,row.Diagnoser1,treatmentplan)
         end
     end
     patients
@@ -41,7 +41,7 @@ function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=R
             cur_resourceid = string(resource_df[1,:Type],"_",resource_df[1,:Resource])
             cur_resourcelocation = findfirst(x -> x.id == cur_resourceid, resources)
             if isnothing(cur_resourcelocation)
-                push!(resources,Resource(resource_df[1,:Type],string(resource_df[1,:Resource])))
+                addNewResource!(resources,string(resource_df[1,:Type]),string(resource_df[1,:Resource]))
                 cur_resourcelocation = length(resources)
             end
             evencalendar = Calendar()
@@ -71,15 +71,16 @@ function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=R
         resources
 end
 
-function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::MasterCalendar)
+function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::Dict{Int64,Date})
     for cur_resource in resources
-        for day in masterCalendar.workdays
-
-            daypatterns = filter(x -> (x.weekday == dayofweek(day) && week(day)%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)
+        for day in masterCalendar
+            daypatterns = filter(x -> (x.weekday == dayofweek(day[2]) && week(day[2])%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)
             if length(daypatterns) > 0
+                length(daypatterns) > 1 &&  warn("Multiple day patterns for weekday $(x.weekday) of weektype $(x.weektype), using first pattern")
                 daypatterns[1].date = day
-
+                y.date = day for y in daypatterns[1].timeslots
                 addWorkday!(cur_resource.calendar,daypatterns[1])
+
             end
 
         end
