@@ -59,7 +59,11 @@ function Base.:(+)(cal1::AbstractCalendar, cal2::AbstractCalendar)
 end
 
 
-function addWorkday!(calendar::Calendar,workday::Workday)
+function addWorkday!(calendar::Calendar,workday::Workday,day::Pair{Int64,Date}=(0=>Date(0)))
+    workday.date = day
+    for y in workday.timeslots
+        y.date = day
+    end
     push!(calendar.workdays,workday)
-    sort!(calendar.workdays,by = x ->(x.date,x.weekday))
+    sort!(calendar.workdays,by = x ->(x.date[1],x.weekday))
 end

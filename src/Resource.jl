@@ -26,14 +26,14 @@ mutable struct Resource <: AbstractResource
     id::String
     type::String
     name::String
-
+    qualifications::Dict{String,String}
     workpattern::Calendar
 
     calendar::Calendar
     offperiods::Array{Offperiod}
 
-    Resource(intID::Int,type::String,name::String) = new(intID,string(type, "_" , name),type,name,Calendar(),Calendar(),Offperiod[])
-    Resource(type::String,name::String) = new(0,string(type, "_" , name),type,name,Calendar(),Calendar(),Offperiod[])
+    Resource(intID::Int,type::String,name::String) = new(intID,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type),Calendar(),Calendar(),Offperiod[])
+    Resource(type::String,name::String) = new(0,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type)Calendar(),Calendar(),Offperiod[])
 end
 
 function addNewResource!(resources::Array{Resource},type::String,name::String)
@@ -42,4 +42,7 @@ end
 
 function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)
     resource.workpattern = oddcalendar + evencalendar
+end
+
+function getDays(Resources::Array{Resource},mastercalendar::Dict{Int64,Date})
 end

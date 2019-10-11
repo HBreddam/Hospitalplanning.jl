@@ -54,8 +54,9 @@ function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=R
                     if ismissing(row[Symbol(string(day[1],"_start"))]) ||row[Symbol(string(day[1],"_start"))]=="PAUSE"
                          continue
                     end
-                    addTimeslot!(evenday,row[Symbol(string(day[1],"_start"))],row[Symbol(string(day[1],"_end"))])
+
                     if row.Weeks in ("All","Even")
+                        addTimeslot!(evenday,row[Symbol(string(day[1],"_start"))],row[Symbol(string(day[1],"_end"))])
                     end
                     if row.Weeks in ("All","Odd")
                         addTimeslot!(oddday,row[Symbol(string(day[1],"_start"))],row[Symbol(string(day[1],"_end"))])
@@ -73,13 +74,18 @@ end
 
 function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::Dict{Int64,Date})
     for cur_resource in resources
-        for day in masterCalendar
+        for day in sort(collect(masterCalendar))
             daypatterns = filter(x -> (x.weekday == dayofweek(day[2]) && week(day[2])%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)
+
             if length(daypatterns) > 0
                 length(daypatterns) > 1 &&  warn("Multiple day patterns for weekday $(x.weekday) of weektype $(x.weektype), using first pattern")
-                daypatterns[1].date = day
-                y.date = day for y in daypatterns[1].timeslots
-                addWorkday!(cur_resource.calendar,daypatterns[1])
+                # daypatterns[1].date = day
+
+                # for y in daypatterns[1].timeslots
+                #     y.date = day
+                # end
+                daypattern = deepcopy(daypatterns[1])
+                addWorkday!(cur_resource.calendar,daypattern,day)
 
             end
 
