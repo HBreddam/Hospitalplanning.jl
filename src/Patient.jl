@@ -3,7 +3,7 @@ struct Patient
     id::String
     age::Int
     diagnosis::String
-    treatmentplan::Array{Any}
+    treatmentplan::Array{UnplannedVisit}
 
 
 

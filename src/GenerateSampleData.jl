@@ -1,6 +1,7 @@
 using XLSX
 using DataFrames
 using Random
+using UUIDs
 
 
 function generateTreatmentplan(row::DataFrameRow,bestord::Pair{Int64,Date},columns::Dict{Symbol,String})
@@ -9,9 +10,9 @@ function generateTreatmentplan(row::DataFrameRow,bestord::Pair{Int64,Date},colum
             if !ismissing(row[col[1]])
 
                 if row[col[1]] == 1
-                    push!(treatmentplan,Hospitalplanning.UnplannedVisit("test",bestord,col[2]))
+                    push!(treatmentplan,Hospitalplanning.UnplannedVisit(length(treatmentplan)+1,string(uuid4()),bestord,col[2]))
                 elseif rand() < row[col[1]]
-                    push!(treatmentplan,Hospitalplanning.UnplannedVisit("test",bestord,col[2]))
+                    push!(treatmentplan,Hospitalplanning.UnplannedVisit(length(treatmentplan)+1,string(uuid4()),bestord,col[2]))
                 end
             end
         end
@@ -37,7 +38,7 @@ end
 function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=Resource[])
         columns = Dict{String,Int}("Monday"=>1,"Tuesday"=> 2, "Wednesday" => 3, "Thursday" => 4, "Friday"=> 5)
         wp_df = DataFrame(XLSX.readtable(path,sheet)...)
-        for resource_df in groupby(wp_df,:Resource,skipmissing = true)
+        for resource_df in groupby(wp_df,[:Type,:Resource],skipmissing = true)
             cur_resourceid = string(resource_df[1,:Type],"_",resource_df[1,:Resource])
             cur_resourcelocation = findfirst(x -> x.id == cur_resourceid, resources)
             if isnothing(cur_resourcelocation)
@@ -78,7 +79,7 @@ function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar:
             daypatterns = filter(x -> (x.weekday == dayofweek(day[2]) && week(day[2])%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)
 
             if length(daypatterns) > 0
-                length(daypatterns) > 1 &&  warn("Multiple day patterns for weekday $(x.weekday) of weektype $(x.weektype), using first pattern")
+                length(daypatterns) > 1 &&  @warn ("Multiple day patterns for weekday $(x.weekday) of weektype $(x.weektype), using first pattern")
                 # daypatterns[1].date = day
 
                 # for y in daypatterns[1].timeslots

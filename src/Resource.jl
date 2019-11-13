@@ -37,7 +37,7 @@ mutable struct Resource <: AbstractResource
 end
 
 function addNewResource!(resources::Array{Resource},type::String,name::String)
-    push!(resources,Resource(length(resources)+1,type,name))
+    any(r-> r.id == string(type, "_" , name),resources) ? error("Not Unique resource id") : push!(resources,Resource(length(resources)+1,type,name))
 end
 
 function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)

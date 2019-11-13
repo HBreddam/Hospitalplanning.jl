@@ -8,12 +8,14 @@ using Dates
 
 include("Misc.jl")
 
-include("Patient.jl")
 include("Resource.jl")
 include("Visit.jl")
+include("Patient.jl")
 include("GenerateSampleData.jl")
 
-greet() = print("Hello World!")
+include("MIP/datastructures.jl")
+include("MIP/subproblem.jl")
+
 
 
 end # module
