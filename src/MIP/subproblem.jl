@@ -49,7 +49,7 @@ function solveSub(sub,phi,pi,kappa,patient)
 
 
 
-    @objective(sub.model, Min, sum(sub.yvars[j] for j in sub.J) - sum(sub.tvars[d,j]*phi[d,j,i] for d in sub.D,j in sub.J_d[d],i in sub.I[d][j] ) - sum(sub.xvars[d,j,i] * pi[d,j,i] for d in sub.D,j in sub.J_d[d],i in sub.I[d][j])-kappa[patient] )
+    @objective(sub.model, Min, sum(sub.yvars[j] for j in sub.J) - sum(sub.tvars[d,j]*phi[d,j,i] for d in sub.D,j in sub.J_d[d],i in sub.I[d][j] ) - sum(sub.xvars[v,d,j,i] * pi[d,j,i] for v in sub.V, d in sub.D_v[v],j in sub.J_d[d],i in sub.I[d][j])-kappa[patient] )
 
 
     optimize!(sub.model)
