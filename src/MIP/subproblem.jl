@@ -1,28 +1,5 @@
-getDays(resource,subcal) = (x->x.date[1]).(filter(day ->day.date in subcal,resource.calendar.workdays))
 
-function getTimeSlot(resource,dayID)
-    workdays = filter(x->x.date[1]==dayID,resource.calendar.workdays)
-    length(workdays) > 1 ? error("Multiple days with same dayID") :
-    length(workdays) == 1 ? (x->x.intID).(workdays[1].timeslots) : Int64[]
-end
-getTSendtime(resource,dayID,slotID) = Dates.value(filter(x->x.date[1]==dayID,resource.calendar.workdays)[1].timeslots[slotID].endTime)/60000000000
-function getTSendtime(resource,dayID,slotID,refDate)
-    workday = filter(x->x.date[1]==dayID,resource.calendar.workdays)[1]
-    datetime = workday.timeslots[slotID].endTime + workday.date[2]
-    Dates.value(datetime-refDate)/60000000000
-end
-function getTSstarttime(resource,dayID,slotID,refDate)
-    workday = filter(x->x.date[1]==dayID,resource.calendar.workdays)[1]
-    test = length(workday.timeslots)
-    slotID > test ? error("slotID out of range") :
-    datetime = workday.timeslots[slotID].startTime + workday.date[2]
-    Dates.value(datetime-refDate)/60000000000
-end
-getTSstarttime(resource,dayID,slotID) = Dates.value(filter(x->x.date[1]==dayID,resource.calendar.workdays)[1].timeslots[slotID].startTime)/60000000000
-getResource(resources,visits) = findqualifiedResourceIDs(resources,visits)
-getTdelta(v1,v2) = v1 == 1 ? 1440 - 8*60 : 0  #TODO create this funtion correctly
-
-function setup_sub!(subproblems::Subproblems,patient::Patient,resources::Array{Resource},subMastercalendar::Dict{Int,Date})
+function setup_sub!(subproblems,patient::Patient,resources::Array{Resource},subMastercalendar::Dict{Int,Date})
     M = 10000
     sub = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=1))
     refDate = minimum(subMastercalendar)[2]+Time(0)
@@ -62,24 +39,24 @@ function setup_sub!(subproblems::Subproblems,patient::Patient,resources::Array{R
             -(1-kvars[v2,v1])*M) #TODO Te, Ts, Tdelta
 
 
-    addsubproblem(subproblems,sub,xvars,yvars,tvars,kvars,patient.intID)
+    addsubproblem(subproblems,patient.intID,sub,xvars,yvars,tvars,kvars,V,D,D_v,J,J_d,I,Ts,Te)
 end
 
 
 
 
-# function solveSub(subproblems,phi,pi,kappa,patient,param::Parameters)
-#     P, I, J, D, R, DR, w1,w2,activities,M,timeofday = get(param)
-#     sub,xvars_sub, yvars_sub, tvars_sub = getsubproblem(subproblems,patient)
-#
-#     @objective(sub, Min, sum(yvars_sub[j]*w2[patient] for j in J) - sum(tvars_sub[j,d]*phi[i,j,d] for i in I, j in J, d in D ) - sum(xvars_sub[i,j,d] * pi[i,j,d] for i in I, j in J, d in DR)-kappa[patient] )
-#
-#
-#     optimize!(sub)
-#     status = termination_status(sub)
-#     if status != MOI.TerminationStatusCode(1)
-#         throw("Error: Non optimal sub-problem")
-#     end
-#
-#     return objective_value(sub), value.(xvars_sub), value.(yvars_sub),value.(tvars_sub)
-# end
+function solveSub(sub,phi,pi,kappa,patient)
+
+
+
+    @objective(sub.model, Min, sum(sub.yvars[j] for j in sub.J) - sum(sub.tvars[d,j]*phi[d,j,i] for d in sub.D,j in sub.J_d[d],i in sub.I[d][j] ) - sum(sub.xvars[d,j,i] * pi[d,j,i] for d in sub.D,j in sub.J_d[d],i in sub.I[d][j])-kappa[patient] )
+
+
+    optimize!(sub.model)
+    status = termination_status(sub.model)
+    if status != MOI.TerminationStatusCode(1)
+        throw("Error: Non optimal sub-problem")
+    end
+
+    return objective_value(sub.model), value.(sub.xvars), value.(sub.yvars),value.(sub.tvars)
+end

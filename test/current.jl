@@ -1,6 +1,7 @@
 
 using Dates
 using Debugger
+using JuMP
 using Hospitalplanning
 HP = Hospitalplanning
 
@@ -14,7 +15,7 @@ mastercalendar = HP.MasterCalendar(startdate,enddate)
 mastercalendar[1]
 columns = Dict(:Consultation => "Consultation" , :Telefon =>"Telephone" , :TTE => "TTE", :AEKG => "AEKG",  :MR => "MR", :Holter=>"Holter")
 patients = HP.readPatientTable(path,sheet,columns,mastercalendar)
-
+patients
 
 path_resourceOverview = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/GUCHamb_Timeslot_test.xlsx"
 sheet_amb = "GUCH AMB"
@@ -41,9 +42,15 @@ for i in 1:length(patients)
     termination_status(subproblems.models[i])
 end
 
-using JuMP
-JuMP.optimize!(subproblems.models[1])
-termination_status(subproblems.models[1])
+mp = HP.setupmaster(patients,GUCHAmb_resources,submastercalendar)
+
+optimize!(mp.model)
+
+phi = dual.(mp.consref_offtime)
+pi = dual.(mp.consref_onepatient)
+kappa = dual.(mp.convexitycons)
+
+
 #--------------------------------------------------------------------------
 
 HP.getDays(GUCHAmb_resources[2],submastercalendar)

@@ -14,7 +14,9 @@ include("Patient.jl")
 include("GenerateSampleData.jl")
 
 include("MIP/datastructures.jl")
+include("MIP/SupportFunctions.jl")
 include("MIP/subproblem.jl")
+include("MIP/masterproblem.jl")
 
 
 

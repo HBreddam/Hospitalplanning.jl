@@ -1,21 +1,38 @@
-
-
-mutable struct Subproblems
-    models::Array{JuMP.Model,1}
-    xvars
-    yvars
-    tvars
-    kvars
-
-    Subproblems(nsub) = new(Vector{JuMP.Model}(undef,nsub),[],[],[],[])
+mutable struct Masterproblem
+    model::JuMP.Model
+    consref_offtime
+    consref_onepatient
+    convexitycons
+    lambda
+    closingtime
 end
 
-function addsubproblem(subproblems::Subproblems,sub::JuMP.Model,xvars,yvars,tvars,kvars,nsub)
-        subproblems.models[nsub] = sub
-        push!(subproblems.xvars, xvars)
-        push!(subproblems.yvars, yvars)
-        push!(subproblems.tvars, tvars)
-        push!(subproblems.kvars, kvars)
+mutable struct Subproblem
+    model::JuMP.Model
+    xvars; yvars; tvars; kvars
+    V; D; D_v; J; J_d; I; Ts; Te
+    Subproblem() = new()
+end
+
+
+
+function addsubproblem(subproblems,nsub,sub::JuMP.Model,xvars,yvars,tvars,kvars, V, D ,D_v, J, J_d, I, Ts, Te)
+        cursub = Subproblem()
+        cursub.model = sub
+        cursub.xvars = xvars
+        cursub.yvars = yvars
+        cursub.tvars = tvars
+        cursub.kvars = kvars
+        cursub.V = V
+        cursub.D = D
+        cursub.D_v = D_v
+        cursub.J = J
+        cursub.J_d = J_d
+        cursub.I = I
+        cursub.Ts = Ts
+        cursub.Te = Te
+
+        subproblems[nsub] = cursub
 end
 
 function getsubproblem(subproblems,patient)
