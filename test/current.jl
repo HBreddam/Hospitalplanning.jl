@@ -35,13 +35,14 @@ patients[1].treatmentplan
 HP.findqualifiedResources(GUCHAmb_resources,patients[1].treatmentplan)
 HP.findqualifiedResourceIDs(GUCHAmb_resources,patients[1].treatmentplan)
 
-subproblems = HP.Subproblems(length(patients))
+subproblems = Dict{Int64,HP.Subproblem}()
 for i in 1:length(patients)
+    println("Setting up subproblem for patient $(i):")
     HP.setup_sub!(subproblems,patients[i],GUCHAmb_resources,submastercalendar)
-    JuMP.optimize!(subproblems.models[i])
-    termination_status(subproblems.models[i])
+
 end
 
+subproblems
 mp = HP.setupmaster(patients,GUCHAmb_resources,submastercalendar)
 
 optimize!(mp.model)
@@ -49,21 +50,26 @@ optimize!(mp.model)
 phi = dual.(mp.consref_offtime)
 pi = dual.(mp.consref_onepatient)
 kappa = dual.(mp.convexitycons)
-
-
-#--------------------------------------------------------------------------
-
-HP.getDays(GUCHAmb_resources[2],submastercalendar)
-(x->x.intID).((filter(x->x.date[1]==7,GUCHAmb_resources[2].calendar.workdays)[1]).timeslots)
-HP.getTS(GUCHAmb_resources[2],7)
-
-(x->x.intID).(GUCHAmb_resources[2].calendar.workdays[2].timeslots)
-subproblems = HP.Subproblems(1)
-Dates.Time(HP.getTSendtime_minutes(GUCHAmb_resources[5],7,4))
-
-latesttime
-testt
-Dates.value(Time(1))/60000000000
-for i in iterate(I)
-    println(i)
+for i in 1:length(patients)
+    println("Solving subproblem for patient $(i)")
+    HP.solveSub(subproblems[i],phi,pi,kappa,1)
 end
+
+
+HP.addcolumntomaster(mp,subproblems,1)
+mp
+JuMP.objective_value(mp.model)
+#--------------------------------------------------------------------------
+typeof(subproblems)
+HP.getIndexofPositiveVariables(mp.lambda_new)
+value.((x->subproblems[1].tvars[x]).(filter(k-> value(subproblems[1].tvars[k]) > 0 ,eachindex(subproblems[1].tvars))))
+filter(k-> value(subproblems[1].tvars[k]) > 0 ,eachindex(subproblems[1].tvars))
+
+value.((x->subproblems[1].kvars[x]).(filter(k-> value(subproblems[1].kvars[k]) > 0 ,eachindex(subproblems[1].kvars))))
+filter(k-> value(subproblems[1].kvars[k]) > 0 ,eachindex(subproblems[1].kvars))
+HP.getIndexofPositiveVariables(subproblems[1].kvars)
+
+test= filter(k-> value(subproblems[1].xvars[k]) ==1 ,eachindex(subproblems[1].xvars))
+
+filter(k-> value(subproblems[1].yvars[k]) != 0 ,eachindex(subproblems[1].yvars))
+subproblems[1].J

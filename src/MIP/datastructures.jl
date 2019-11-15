@@ -8,6 +8,7 @@ mutable struct Masterproblem
 end
 
 mutable struct Subproblem
+        patient
     model::JuMP.Model
     xvars; yvars; tvars; kvars
     V; D; D_v; J; J_d; I; Ts; Te
@@ -18,6 +19,7 @@ end
 
 function addsubproblem(subproblems,nsub,sub::JuMP.Model,xvars,yvars,tvars,kvars, V, D ,D_v, J, J_d, I, Ts, Te)
         cursub = Subproblem()
+        cursub.patient = nsub #TODO is this correct?
         cursub.model = sub
         cursub.xvars = xvars
         cursub.yvars = yvars

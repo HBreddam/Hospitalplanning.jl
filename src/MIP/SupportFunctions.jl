@@ -21,3 +21,6 @@ end
 getTSstarttime(resource,dayID,slotID) = Dates.value(filter(x->x.date[1]==dayID,resource.calendar.workdays)[1].timeslots[slotID].startTime)/60000000000
 getResource(resources,visits) = findqualifiedResourceIDs(resources,visits)
 getTdelta(v1,v2) = v1 == 1 ? 1440 - 8*60 : 0  #TODO create this funtion correctly
+
+getIndexofPositiveVariables(vars) = filter(k-> value(vars[k]) > 0 ,eachindex(vars))
+getvalueofPositiveVariables(vars) = value.((x->vars[x]).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))))
