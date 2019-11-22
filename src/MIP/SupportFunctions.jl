@@ -5,6 +5,18 @@ function getTimeSlot(resource,dayID)
     length(workdays) > 1 ? error("Multiple days with same dayID") :
     length(workdays) == 1 ? (x->x.intID).(filter(x-> x.status == free ,workdays[1].timeslots)) : Int64[]
 end
+
+function getTlowerbound(resource,dayID)
+    bookedslots = filter(t-> t.status== booked, filter(x->x.date[1]==dayID,resource.calendar.workdays)[1].timeslots)
+    if length(bookedslots) >= 1
+        value = Dates.value(bookedslots[end].endTime)/60000000000
+    else
+        value = 0
+    end
+
+    return value
+end
+
 getTSendtime(resource,dayID,slotID) = Dates.value(filter(x->x.date[1]==dayID,resource.calendar.workdays)[1].timeslots[slotID].endTime)/60000000000
 function getTSendtime(resource,dayID,slotID,refDate)
     workday = filter(x->x.date[1]==dayID,resource.calendar.workdays)[1]
@@ -31,5 +43,13 @@ function getDelta(TimeDelta,visit1,visit2)
 end
 
 
+
+
+
+
+
 getIndexofPositiveVariables(vars) = filter(k-> value(vars[k]) > 0 ,eachindex(vars))
 getvalueofPositiveVariables(vars) = value.((x->vars[x]).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))))
+getPositiveVariables(vars) = (x->(vars[x], value(vars[x]))).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))) #TODO er det en omvej til en genvej, med først at bruge index og derefter bruge vars[x]?`
+
+hashSets(subproblem) = hash((subproblem.D_v,subproblem.J_d,subproblem.I,subproblem.Ts,subproblem.Te))

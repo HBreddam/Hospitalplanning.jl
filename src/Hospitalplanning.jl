@@ -17,6 +17,7 @@ include("MIP/datastructures.jl")
 include("MIP/SupportFunctions.jl")
 include("MIP/masterproblem.jl")
 include("MIP/subproblem.jl")
+include("MIP/model_column.jl")
 
 
 
