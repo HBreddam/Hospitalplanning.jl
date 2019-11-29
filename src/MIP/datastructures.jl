@@ -5,12 +5,14 @@ mutable struct Masterproblem
     convexitycons
     lambda
     closingtime
+    I
 end
 
 mutable struct PricingProblem
+        intID::Int64
         model::JuMP.Model
-        xvars; yvars; tvars; kvars
-        V; D; D_v; J; J_d; I; Ts; Te
+        xvars; yvars; tvars; kvars; gvars
+        V; D; D_v; J; J_d; I; Ts; Te; Tdelta
         patients
 
         PricingProblem() = new()
@@ -42,6 +44,7 @@ function addsets!(subproblems,patient,V,D,D_v,J,J_d,I,Ts,Te)
         curset.I = I
         curset.Ts = Ts
         curset.Te = Te
+
         curset.hash = hashSets(curset)
 
         subproblems.sets[patient] = curset
@@ -49,13 +52,15 @@ function addsets!(subproblems,patient,V,D,D_v,J,J_d,I,Ts,Te)
 end
 
 
-function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tvars,kvars,patient,V,D,D_v,J,J_d,I,Ts,Te)
+function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tvars,kvars,gvars,patient,V,D,D_v,J,J_d,I,Ts,Te,Tdelta)
         curPP = PricingProblem()
+        curPP.intID = length(subproblems.pricingproblems)+1
         curPP.model = sub
         curPP.xvars = xvars
         curPP.yvars = yvars
         curPP.tvars = tvars
         curPP.kvars = kvars
+        curPP.gvars = gvars
         curPP.patients = [patient]
         curPP.V = V
         curPP.D = D
@@ -65,6 +70,7 @@ function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tv
         curPP.I = I
         curPP.Ts = Ts
         curPP.Te = Te
+        curPP.Tdelta = Tdelta
 
         subproblems.pricingproblems[hashofsets] = curPP
 end

@@ -3,7 +3,7 @@ using DataFrames
 using Random
 using UUIDs
 
-
+#TODO sort treatmentplan by default
 function generateTreatmentplan(row::DataFrameRow,bestord::Pair{Int64,Date},columns::Dict{Symbol,String})
     treatmentplan = []
         for col in columns
@@ -73,7 +73,7 @@ function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=R
         resources
 end
 
-function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::Dict{Int64,Date})
+function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::Dict{Int64,Date})#TODO Throw out old calendar
     for cur_resource in resources
         for day in sort(collect(masterCalendar))
             daypatterns = filter(x -> (x.weekday == dayofweek(day[2]) && week(day[2])%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)

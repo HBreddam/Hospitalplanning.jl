@@ -1,13 +1,15 @@
 
 
-function setupmaster(patients,resources,subMastercalendar)
+function setupmaster(subproblems,patients,resources,subMastercalendar)
 
 
     master = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=0))
 
     K = length(patients)
+    Gp = [sub.intID for sub in values(subproblems.pricingproblems)]
 
-    P = (x->x.intID).(patients)
+    P_g = Dict(sub.intID => sub.patients for sub in values(subproblems.pricingproblems))
+
     D = (x->x.intID).(resources)
     J = keys(subMastercalendar)
     J_d = Dict(d => getDays(resources[d],subMastercalendar) for d in D)
@@ -21,28 +23,76 @@ function setupmaster(patients,resources,subMastercalendar)
     end
 
 
-    @objective(master, Min, sum(closingtime[d,j] for d in D, j in J_d[d]) + sum(1000*lambda[m] for p in P, m in 1:K))
+    @objective(master, Min, sum(closingtime[d,j] for d in D, j in J_d[d]) + sum(1000000*lambda[m] for m in 1:K))
 
     @constraint(master,consref_offtime[d in D, j in J_d[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j])
 
-    @constraint(master,convexitycons[p in P],
-       sum(lambda[m] for m in 1:K if m == p) == 1 )
+    @constraint(master,convexitycons[g in Gp],
+       sum(lambda[m] for m in 1:K if m in P_g[g]) == length(P_g[g]) )
 
 
     @constraint(master,consref_onepatient[ d in D, j in J_d[d], i in I[d][j]],
-        sum(lambda[m]*0 for p in P, m in 1:K) <=1 )
+        0 <=1 )
 
 
-    return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime)
+    return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I)
     # return consref_offtime, consref_onepatient, convexitycons,lambda,closingtime
 end
+"Return the sum of the maximal path that of visits that visit x must preceed"
+function sumpath(Tdelta,x)
+    sum = []
+    for y in filter(t->t[2][2]==true ,Tdelta[x])
+        push!(sum,y[2][1]+sumpath(Tdelta,y[1]))
+    end
+    if length(sum)> 0
+        return maximum(sum)
+    else
+        return 0
+    end
+end
+
+function visit(v,temp,perm,Tdelta,L)
+    if v in perm
+        return
+    end
+    v in temp ? error("Delta graph is not a DAG") :
+    push!(temp,v)
+    for v2 in filter(x-> x[2][2]==true, Tdelta[v])
+        visit(v2[1],temp,perm,Tdelta,L)
+    end
+    filter!(x->x!= v ,temp)
+    push!(perm,v)
+    prepend!(L,v)
+    l = 1
+    while l < length(L)
+        Tdelta[v][L[l+1]][2] == true ?  break : l += 1
+    end
+    if l < length(L) && l > 1
+        L[1:l] = sort!(L[1:l] ,by = x-> sumpath(Tdelta,x),rev= true)
+    end
+end
+
+function sortvisit(V_input,Tdelta)
+    L = Int64[]; temp = Int64[]; perm = Int64[]
+    V = copy(V_input)
+    while length(V) > 0
+        visit(pop!(V),temp,perm,Tdelta,L)
+    end
+    return L
+end
+
+
+
+
+
+
 
 function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblems,iteration::Int64,EPSVALUE)
     done = true
-    for sub in values(subproblems.sets)
-        if objective_value(subproblems.pricingproblems[sub.hash].model) < -EPSVALUE
-
-            addcolumntomaster(masterproblem,subproblems.pricingproblems[sub.hash],sub.patients,iteration)
+    for sub in values(subproblems.pricingproblems)
+        if objective_value(sub.model) < -EPSVALUE
+            println("Subproblem objective value = $(JuMP.objective_value(sub.model))")
+            addcolumntomaster(masterproblem,sub,iteration)
             done = false
         end
     end
@@ -51,16 +101,15 @@ end
 
 function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64,EPSVALUE)
         if objective_value(pricingproblem.model) < -EPSVALUE
-            for patient in pricingproblem.patients
-                addcolumntomaster!(masterproblem,pricingproblem,patient,iteration)
-            end
+            println("Subproblem objective value = $(JuMP.objective_value(pricingproblem.model))")
+            addcolumntomaster!(masterproblem,pricingproblem,iteration)
             return false
         end
     return true
 end
 
 
-function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,patient::Int64,iteration::Int64)
+function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64)
 
     touchedconstraints = ConstraintRef[]
     constraint_coefficients = Float64[]
@@ -82,17 +131,17 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
         push!(constraint_coefficients,1)
     end
 
-    push!(touchedconstraints,masterproblem.convexitycons[patient])
+    push!(touchedconstraints,masterproblem.convexitycons[pricingproblem.intID])
     push!(constraint_coefficients,1)
 
     push!(masterproblem.lambda,@variable(
         masterproblem.model,
         lower_bound = 0,
-        base_name = "lambda_new[$(patient),$(iteration)]_$(length(masterproblem.lambda))" ,
+        base_name = "lambda_new[$(pricingproblem.intID),$(iteration)]_$(length(masterproblem.lambda))" ,
 
     ))
     JuMP.set_objective_coefficient(masterproblem.model,masterproblem.lambda[end],1000*sum(value.(pricingproblem.yvars)))
-    JuMP.set_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
+    JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
 
 
 end
