@@ -3,6 +3,8 @@ using Dates
 using Debugger
 using JuMP
 using Hospitalplanning
+using XLSX
+using DataFrames
 HP = Hospitalplanning
 
 
@@ -10,58 +12,54 @@ HP = Hospitalplanning
 path = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/PatientOverview_test.xlsx"
 sheet = "Sheet1"
 startdate = Date("2019-01-01")
-enddate = Date("2019-12-31")
+enddate = Date("2019-08-10")
 mastercalendar = HP.MasterCalendar(startdate,enddate)
-mastercalendar[1]
+
 columns = Dict(:Consultation => "Consultation" , :Telefon =>"Telephone" , :TTE => "TTE", :AEKG => "AEKG",  :MR => "MR", :Holter=>"Holter")
 patients = HP.readPatientTable(path,sheet,columns,mastercalendar)
-patients
+
 
 path_resourceOverview = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/GUCHamb_Timeslot_test.xlsx"
 sheet_amb = "GUCH AMB"
 sheet_resources = "External"
 
 GUCHAmb_resources = Hospitalplanning.readWorkPattern(path_resourceOverview,sheet_amb)
-GUCHAmb_resources
+
 external_resources = Hospitalplanning.readWorkPattern(path_resourceOverview,sheet_resources,GUCHAmb_resources)
 HP.generateCalendarFromPattern!(GUCHAmb_resources,mastercalendar)
 
-HP.generateRandomCalendar!(GUCHAmb_resources,0.8)
+HP.generateRandomCalendar!(GUCHAmb_resources,0.6)
+
+path_TimeDelta = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/GUCHamb_timeDelta.xlsx"
+sheet_TimeDelta = "Sheet1"
+timeDelta = DataFrame(XLSX.readtable(path_TimeDelta,sheet_TimeDelta)...)
+
+submastercalendar = HP.MasterCalendar(mastercalendar,startdate,Date("2019-06-15"))
+
+mp, subs = HP.columngeneration(patients,GUCHAmb_resources,mastercalendar,timeDelta,false)
+subs.pricingproblems
 
 
-submastercalendar = HP.MasterCalendar(mastercalendar,startdate,enddate-Day(100))
-patients[1].treatmentplan
-
-HP.findqualifiedResources(GUCHAmb_resources,patients[1].treatmentplan)
-HP.findqualifiedResourceIDs(GUCHAmb_resources,patients[1].treatmentplan)
-
-subproblems = Dict{Int64,HP.Subproblem}()
-for i in 1:length(patients)
-    println("Setting up subproblem for patient $(i):")
-    HP.setup_sub!(subproblems,patients[i],GUCHAmb_resources,submastercalendar)
-
-end
-
-subproblems
-mp = HP.setupmaster(patients,GUCHAmb_resources,submastercalendar)
-
-optimize!(mp.model)
-
-phi = dual.(mp.consref_offtime)
-pi = dual.(mp.consref_onepatient)
-kappa = dual.(mp.convexitycons)
-for i in 1:length(patients)
-    println("Solving subproblem for patient $(i)")
-    HP.solveSub(subproblems[i],phi,pi,kappa,1)
-end
+test = subs.pricingproblems[subs.sets[1].hash]
 
 
-HP.addcolumntomaster(mp,subproblems,1)
-mp
-JuMP.objective_value(mp.model)
-#--------------------------------------------------------------------------
+
+
+
+#=--------------------------------------------
+HP.sortvisit([3,2 , 5, 4 ,1,],test.Tdelta) # TODO her kom jeg til, der er noget galt med den
+
 typeof(subproblems)
-HP.getIndexofPositiveVariables(mp.lambda_new)
+cnt = 1
+mp.lambda
+println.(value.(mp.lambda))
+for l in mp.lambda
+    global cnt
+    println(cnt)
+    cnt += 1
+    println("$(l) = $(value(l))")
+end
+
 value.((x->subproblems[1].tvars[x]).(filter(k-> value(subproblems[1].tvars[k]) > 0 ,eachindex(subproblems[1].tvars))))
 filter(k-> value(subproblems[1].tvars[k]) > 0 ,eachindex(subproblems[1].tvars))
 
@@ -73,3 +71,7 @@ test= filter(k-> value(subproblems[1].xvars[k]) ==1 ,eachindex(subproblems[1].xv
 
 filter(k-> value(subproblems[1].yvars[k]) != 0 ,eachindex(subproblems[1].yvars))
 subproblems[1].J
+
+
+# TODO Only solve once for similar patient
+=#

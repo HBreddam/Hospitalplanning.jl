@@ -6,6 +6,7 @@ mutable struct Masterproblem
     lambda
     closingtime
     I
+    env
 end
 
 mutable struct PricingProblem

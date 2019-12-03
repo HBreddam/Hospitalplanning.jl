@@ -2,9 +2,10 @@
 
 function setupmaster(subproblems,patients,resources,subMastercalendar)
 
-
-    master = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=0))
-
+    env = Gurobi.Env()
+    Gurobi.setparams!(env, OutputFlag=0)
+    master = Model(with_optimizer(Gurobi.Optimizer,env))
+    
     K = length(patients)
     Gp = [sub.intID for sub in values(subproblems.pricingproblems)]
 
@@ -25,7 +26,7 @@ function setupmaster(subproblems,patients,resources,subMastercalendar)
 
     @objective(master, Min, sum(closingtime[d,j] for d in D, j in J_d[d]) + sum(1000000*lambda[m] for m in 1:K))
 
-    @constraint(master,consref_offtime[d in D, j in J_d[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j])
+    @constraint(master,consref_offtime[d in D, j in J_d[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
 
     @constraint(master,convexitycons[g in Gp],
        sum(lambda[m] for m in 1:K if m in P_g[g]) == length(P_g[g]) )
@@ -35,7 +36,7 @@ function setupmaster(subproblems,patients,resources,subMastercalendar)
         0 <=1 )
 
 
-    return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I)
+    return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I,env)
     # return consref_offtime, consref_onepatient, convexitycons,lambda,closingtime
 end
 "Return the sum of the maximal path that of visits that visit x must preceed"
@@ -82,6 +83,31 @@ function sortvisit(V_input,Tdelta)
 end
 
 
+function generateInitialColumns!(masterproblem::Masterproblem,subproblems::Subproblems)
+
+    g = SimpleGraph()
+
+    for sub in subproblems.pricingproblems
+        Vsorted = sortvisit(sub.V)
+        for patient in sub.patients
+
+                for d in sub.D_v[Vsorted[1]]
+                 for J in sort(sub.J_d, by = x ->x[1])
+                     for i in I[d][j]
+
+                     end
+                 end
+                end
+            vend
+            if length(Vsorted)> 2
+                for v in Vsorted[2:end-1]
+
+
+                end
+            end
+        end
+    end
+end
 
 
 
@@ -92,7 +118,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblem
     for sub in values(subproblems.pricingproblems)
         if objective_value(sub.model) < -EPSVALUE
             println("Subproblem objective value = $(JuMP.objective_value(sub.model))")
-            addcolumntomaster(masterproblem,sub,iteration)
+            addcolumntomaster!(masterproblem,sub,iteration)
             done = false
         end
     end
