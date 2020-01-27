@@ -1,49 +1,47 @@
 
 
-function setupmaster(subproblems,patients,resources,subMastercalendar)
+function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,sets)
 
     env = Gurobi.Env()
     Gurobi.setparams!(env, OutputFlag=0)
     master = Model(with_optimizer(Gurobi.Optimizer,env))
-    
+
     K = length(patients)
-    Gp = [sub.intID for sub in values(subproblems.pricingproblems)]
-
-    P_g = Dict(sub.intID => sub.patients for sub in values(subproblems.pricingproblems))
-
-    D = (x->x.intID).(resources)
+    Pg = sets.Pg
+    Gp = keys(Pg) ##TODO virker nok ikke men nu smutter jeg hjem
+    D = JuliaDB.select(resources,:intID)
     J = keys(subMastercalendar)
-    J_d = Dict(d => getDays(resources[d],subMastercalendar) for d in D)
-    I = Dict(d => Dict(j => getTimeSlot(resources[d],j) for j in J) for d in D )
+    Jd = sets.Jd
+    I = sets.I
 
     @variable(master,lambda[1:K] >= 0) #TODO make integer at relax
 
-    @variable(master,closingtime[d in D, j in J_d[d]] >= 0)
-    for d in D, j in J_d[d]
-        set_lower_bound(closingtime[d,j],getTlowerbound(resources[d],j))
+    @variable(master,closingtime[d in D, j in Jd[d]] >= 0)
+    for d in D, j in Jd[d]
+        set_lower_bound(closingtime[d,j],getTlowerbound(timeslots,d,j))
     end
 
 
-    @objective(master, Min, sum(closingtime[d,j] for d in D, j in J_d[d]) + sum(1000000*lambda[m] for m in 1:K))
+    @objective(master, Min, sum(closingtime[d,j] for d in D, j in Jd[d]) + sum(1000000*lambda[m] for m in 1:K))
 
-    @constraint(master,consref_offtime[d in D, j in J_d[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
+    @constraint(master,consref_offtime[d in D, j in Jd[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
 
     @constraint(master,convexitycons[g in Gp],
-       sum(lambda[m] for m in 1:K if m in P_g[g]) == length(P_g[g]) )
+       sum(lambda[m] for m in 1:K if m in Pg[g].patients) == length(P_g[g].patients) )
 
 
-    @constraint(master,consref_onepatient[ d in D, j in J_d[d], i in I[d][j]],
+    @constraint(master,consref_onepatient[ d in D, j in Jd[d], i in I[d,j]],
         0 <=1 )
 
 
     return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I,env)
     # return consref_offtime, consref_onepatient, convexitycons,lambda,closingtime
 end
-"Return the sum of the maximal path that of visits that visit x must preceed"
+"Return the sum of the maximal path of visits that visit x must preceed"
 function sumpath(Tdelta,x)
     sum = []
-    for y in filter(t->t[2][2]==true ,Tdelta[x])
-        push!(sum,y[2][1]+sumpath(Tdelta,y[1]))
+    for y in filter(t->t[2] >= 0 ,Tdelta[x])
+        push!(sum,y[2]+sumpath(Tdelta,y[1]))
     end
     if length(sum)> 0
         return maximum(sum)
@@ -58,7 +56,7 @@ function visit(v,temp,perm,Tdelta,L)
     end
     v in temp ? error("Delta graph is not a DAG") :
     push!(temp,v)
-    for v2 in filter(x-> x[2][2]==true, Tdelta[v])
+    for v2 in filter(x-> x[2] >= 0 , Tdelta[v])
         visit(v2[1],temp,perm,Tdelta,L)
     end
     filter!(x->x!= v ,temp)
@@ -66,7 +64,7 @@ function visit(v,temp,perm,Tdelta,L)
     prepend!(L,v)
     l = 1
     while l < length(L)
-        Tdelta[v][L[l+1]][2] == true ?  break : l += 1
+        Tdelta[v][L[l+1]] >= 0 ?  break : l += 1
     end
     if l < length(L) && l > 1
         L[1:l] = sort!(L[1:l] ,by = x-> sumpath(Tdelta,x),rev= true)
@@ -77,7 +75,7 @@ function sortvisit(V_input,Tdelta)
     L = Int64[]; temp = Int64[]; perm = Int64[]
     V = copy(V_input)
     while length(V) > 0
-        visit(pop!(V),temp,perm,Tdelta,L)
+        visit(pop!(V),temp,perm,Tdelta,L) #TODO WTF is going on here????
     end
     return L
 end

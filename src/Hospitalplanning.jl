@@ -4,6 +4,9 @@ using Gurobi
 using MathOptInterface
 using Random
 using Dates
+using LightGraphs
+using Query
+using Lazy
 
 
 include("Misc.jl")

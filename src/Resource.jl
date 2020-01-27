@@ -13,13 +13,13 @@ function Base.:(==)(r1::String, r2::AbstractResource)
     return  r1 == r2.id
 end
 
-struct Offperiod
-    id::String
-    starttime::DateTime
-    endtime::DateTime
-
-    Offperiod(id,starttime,endtime) = new(id,starttime,endtime)
-end
+# struct Offperiod DELETE ME
+#     id::String
+#     starttime::DateTime
+#     endtime::DateTime
+#
+#     Offperiod(id,starttime,endtime) = new(id,starttime,endtime)
+# end
 
 mutable struct Resource <: AbstractResource
     intID::Int
@@ -30,7 +30,7 @@ mutable struct Resource <: AbstractResource
     workpattern::Calendar
 
     calendar::Calendar
-    offperiods::Array{Offperiod}
+    #offperiods::Array{Offperiod} DELETE ME
 
     Resource(intID::Int,type::String,name::String) = new(intID,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type),Calendar(),Calendar(),Offperiod[])
     Resource(type::String,name::String) = new(0,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type)Calendar(),Calendar(),Offperiod[])
@@ -42,7 +42,4 @@ end
 
 function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)
     resource.workpattern = oddcalendar + evencalendar
-end
-
-function getDays(Resources::Array{Resource},mastercalendar::Dict{Int64,Date})
 end

@@ -19,22 +19,20 @@ mutable struct PricingProblem
         PricingProblem() = new()
 end
 
-mutable struct PPSets
-        patient
-        V; D; D_v; J; J_d; I; Ts; Te
-        hash
-
-        PPSets() = new()
+mutable struct Sets
+        Vp; Dp; Dv; J; Jd; I; Pg;
+        Sets() = new()
 end
 
 mutable struct Subproblems
         pricingproblems::Dict{Int128,PricingProblem}
-        sets::Dict{Int64,PPSets}
+        sets::Dict{Int64,Sets}
 
-        Subproblems() = new(Dict{String,PricingProblem}(),Dict{Int128,PPSets}())
+        Subproblems() = new(Dict{String,PricingProblem}(),Dict{Int128,Sets}())
 end
 
 function addsets!(subproblems,patient,V,D,D_v,J,J_d,I,Ts,Te)
+        println("addsets! is deprecated ")
         curset = PPSets()
         curset.patient = patient #TODO is this correct?
         curset.V = V
@@ -53,7 +51,7 @@ function addsets!(subproblems,patient,V,D,D_v,J,J_d,I,Ts,Te)
 end
 
 
-function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tvars,kvars,gvars,patient,V,D,D_v,J,J_d,I,Ts,Te,Tdelta)
+function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tvars,kvars,gvars,patient,)
         curPP = PricingProblem()
         curPP.intID = length(subproblems.pricingproblems)+1
         curPP.model = sub
@@ -63,15 +61,7 @@ function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tv
         curPP.kvars = kvars
         curPP.gvars = gvars
         curPP.patients = [patient]
-        curPP.V = V
-        curPP.D = D
-        curPP.D_v = D_v
-        curPP.J = J
-        curPP.J_d = J_d
-        curPP.I = I
-        curPP.Ts = Ts
-        curPP.Te = Te
-        curPP.Tdelta = Tdelta
+
 
         subproblems.pricingproblems[hashofsets] = curPP
 end

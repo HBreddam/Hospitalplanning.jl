@@ -1,3 +1,4 @@
+###Deprecated
 struct Patient
     intID::Int
     id::String
@@ -13,10 +14,11 @@ struct Patient
     Patient(id::String) = Patient(id,100,"")
 end
 
+###Deprecated
 function Base.:(==)(p1::Patient, p2::Patient)
     return  p1.id == p2.id
 end
-
+###Deprecated
 function addNewPatient!(patients::Array{Patient},id::String,age::Int,diagnosis::String,treatmentplan::Array{Any})
      push!(patients,Patient(length(patients)+1,id,age,diagnosis,treatmentplan))
  end
