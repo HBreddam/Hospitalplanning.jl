@@ -2,7 +2,8 @@
 EPSVALUE = 0.1
 
 
-function columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta, setuponly = false)
+function columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
+    println("Building sets")
     timeslotsNDSparse = ndsparse(timeslots)
     subproblems = Subproblems()
     sets = Sets()
@@ -13,9 +14,9 @@ function columngeneration(patients, visits, resources, timeslots, mastercalendar
     sets.Jd = buildJd(timeslots,mastercalendar)
     sets.I = buildI(timeslots)
     sets.Pg = buildPg(patients,visits,sets.Vp)
-
+    println("Setting up sub-problems")
     setup_sub!(subproblems,patients,visits,resources,timeslotsNDSparse,mastercalendar,timeDelta,sets,1)
-
+    println("Setting up master")
     mp = setupmaster(subproblems,patients,resources,timeslots,mastercalendar,sets)
     #generateInitialColumns(mp,subproblems)
     if setuponly
@@ -26,6 +27,7 @@ function columngeneration(patients, visits, resources, timeslots, mastercalendar
     while !done
         iteration +=1
         println(iteration)
+        println("Solving master")
         optimize!(mp.model)
         println("Master objective value = $(JuMP.objective_value(mp.model))")
         println.(getPositiveVariables(mp.lambda))
@@ -39,24 +41,31 @@ function columngeneration(patients, visits, resources, timeslots, mastercalendar
         θ = dual.(mp.consref_onepatient)
         κ = dual.(mp.convexitycons)
 
-        subthreads = []
+        println("Solving subproblems")
+        if multithreading
+            subthreads = []
+            for sub in values(subproblems.pricingproblems)
+                push!(subthreads,Threads.@spawn solveSub!(sub,sets,ϕ,θ,κ))
+            end
+            #end
+            for thread in subthreads
+                wait(thread) #TODO remove multithreading, fix at turn MT back on
+            end
+        else
+            for sub in values(subproblems.pricingproblems)
+                solveSub!(sub,sets,ϕ,θ,κ)
+                # solveSub!(sub,ϕ,θ,κ)
+                # done2 = addcolumntomaster!(mp,sub,iteration,EPSVALUE) #TODO add patient info
+                # done &= done2
+                # count = 0
+                # while !done2 && count < 0#length(sub.patients)
+                #     count += 1
+                #     solveSub!(sub,getIndexofPositiveVariables(sub.xvars)) #TODO time this
+                #     done2 = addcolumntomaster!(mp,sub,iteration,EPSVALUE)
+                # end
+            end
+            #end
 
-        for sub in values(subproblems.pricingproblems)
-
-            push!(subthreads,Threads.@spawn solveSub!(sub,ϕ,θ,κ))
-            # solveSub!(sub,ϕ,θ,κ)
-            # done2 = addcolumntomaster!(mp,sub,iteration,EPSVALUE) #TODO add patient info
-            # done &= done2
-            # count = 0
-            # while !done2 && count < 0#length(sub.patients)
-            #     count += 1
-            #     solveSub!(sub,getIndexofPositiveVariables(sub.xvars)) #TODO time this
-            #     done2 = addcolumntomaster!(mp,sub,iteration,EPSVALUE)
-            # end
-        end
-        #end
-        for thread in subthreads
-            wait(thread)
         end
         done = addcolumntomaster!(mp,subproblems,iteration,EPSVALUE)
 

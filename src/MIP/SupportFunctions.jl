@@ -5,13 +5,12 @@ function buildJd(timeslots,subcal)
      timeslots |> @filter(_.dayID in keys(subcal))|>@groupby(_.resourceID) |>@map((d = key(_),j = unique(map(x->x.dayID,_)))) |> NDSparse
 end
 function buildI(timeslots)
-    timeslots |> @groupby((_.resourceID,_.dayID)) |> @map({d=key(_)[1],j=key(_)[2],i=map(x->x.timeslotID,_)})|> NDSparse
+    timeslots|> @filter(!_.booked) |> @groupby((_.resourceID,_.dayID)) |> @map({d=key(_)[1],j=key(_)[2],i=map(x->x.timeslotID,_)})|> NDSparse
 end
 
 
 function getTlowerbound(timeslots,resourceID,dayID)
-    println("$resourceID -  $dayID")
-    bookedslots = timeslots |> @filter(_.resourceID == resourceID && _.dayID == dayID && _.status )|> @orderby(_.endTime) |> @take(1)  |>@map(_.endTime) |> collect
+    bookedslots = timeslots |> @filter(_.resourceID == resourceID && _.dayID == dayID && _.booked )|> @orderby(_.endTime) |> @take(1)  |>@map(_.endTime) |> collect
     if length(bookedslots) == 1
         value = Dates.value(first(bookedslots))/60000000000
     else
@@ -56,7 +55,7 @@ end
 
 "Produces a IndexedTable of patient groups based on the function patientgroup()"
 function buildPg(patients,visits,Vp)
-    table(patients |> @groupby(patientgroup(visits,Vp,_.intID))|> @map((group1=key(_)[1],group2=key(_)[2],group3=key(_)[3],patients= map(x->x.intID,_))) |> collect)
+    table(patients |> @groupby(patientgroup(visits,Vp,_.intID))|> @map((types=key(_)[1],startmonth=key(_)[2],endmonths=key(_)[3],patients= map(x->x.intID,_))) |> collect)
 end
 
 

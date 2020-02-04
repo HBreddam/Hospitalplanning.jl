@@ -8,12 +8,12 @@
 function setup_sub!(subproblems,patients::IndexedTable,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},TimeDelta,sets,months)
 
 
-    for patient in rows(patients)
+    for patientgroup in [i for i in 1:length(sets.Pg)]
 
         #TODO length of min treatment time should be calculated and used.
 
 
-        setup_sub!(subproblems,patient,visits,resources,timeslots,mastercalendar,TimeDelta,sets,months)
+        setup_sub!(subproblems,patientgroup,visits,resources,timeslots,mastercalendar,TimeDelta,sets,months)
     end
 end
 startofyear(date::Date) = Date(Year(date))
@@ -31,12 +31,12 @@ function getTimeDelta(timeDelta,visits,v1,v2)
 end
 
 
-function setup_sub!(subproblems,patient::NamedTuple,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},timeDelta,sets,months)
+function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},timeDelta,sets,months)
     M1 = 10
     M2 = 1000
 
     Td(v1,v2) = getTimeDelta(timeDelta,visits,v1,v2)
-    p = patient.intID
+
     V = sets.Vp[p].v; Dv = sets.Dv; D = sets.Dp[p].d; J = sets.J ;Jd = sets.Jd; I = sets.I
     Ts(d,j,i) = Dates.value(timeslots[d,j,i].startTime)/60000000000
     Te(d,j,i) = Dates.value(timeslots[d,j,i].endTime)/60000000000
@@ -45,11 +45,6 @@ function setup_sub!(subproblems,patient::NamedTuple,visits,resources::IndexedTab
     startdate = max(minimum(mastercalendar)[2],min(startofmonth(maximum(mastercalendar)[2]-Month(months)),startofmonth(bestordmin[2])-Month(div(months,2))))
     enddate = startdate + Month(months)-Day(1)
     subMastercalendar = MasterCalendar(mastercalendar,startdate,enddate)
-
-
-
-# TODO tilføj gruppering igen
-    #TODO input all the . notificatons
 
         sub = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=0))
         @variable(sub,xvars[v in V,d in Dv[v].d,j in Jd[d].j,i in I[d,j].i],Bin)
@@ -115,7 +110,7 @@ function solveSub!(sub,ϕ,θ,κ)
     optimize!(sub.model)
     status = termination_status(sub.model)
     if status != MOI.TerminationStatusCode(1)
-        println("$(minimum(sub.J)) - $(maximum(sub.J))")
+
         throw("Error: Non optimal sub-problem for subproblem $(sub.intID)")
 
         #TODO Throw warning and extend search area

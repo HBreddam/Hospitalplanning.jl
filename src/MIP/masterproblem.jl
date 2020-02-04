@@ -8,7 +8,7 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
 
     K = length(patients)
     Pg = sets.Pg
-    Gp = keys(Pg) ##TODO virker nok ikke men nu smutter jeg hjem
+    Gp = [i for i in 1:length(Pg)]
     D = JuliaDB.select(resources,:intID)
     J = keys(subMastercalendar)
     Jd = sets.Jd
@@ -27,10 +27,10 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
     @constraint(master,consref_offtime[d in D, j in Jd[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
 
     @constraint(master,convexitycons[g in Gp],
-       sum(lambda[m] for m in 1:K if m in Pg[g].patients) == length(P_g[g].patients) )
+       sum(lambda[m] for m in 1:K if m in Pg[g].patients) == length(Pg[g].patients) )
 
 
-    @constraint(master,consref_onepatient[ d in D, j in Jd[d], i in I[d,j]],
+    @constraint(master,consref_onepatient[ d in D, j in Jd[d].j, i in I[d,j].i],
         0 <=1 )
 
 
