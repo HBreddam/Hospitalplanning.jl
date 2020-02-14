@@ -1,7 +1,6 @@
 
 
 function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,sets)
-
     env = Gurobi.Env()
     Gurobi.setparams!(env, OutputFlag=0)
     master = Model(with_optimizer(Gurobi.Optimizer,env))
@@ -15,16 +14,15 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
     I = sets.I
 
     @variable(master,lambda[1:K] >= 0) #TODO make integer at relax
+    #@variable(master,closingtime[d in D, j in Jd[d].j] >= 0)
+    # for d in D, j in Jd[d].j
+    #     set_lower_bound(closingtime[d,j],getTlowerbound(timeslots,d,j))
+    # end
 
-    @variable(master,closingtime[d in D, j in Jd[d]] >= 0)
-    for d in D, j in Jd[d]
-        set_lower_bound(closingtime[d,j],getTlowerbound(timeslots,d,j))
-    end
 
-
-    @objective(master, Min, sum(closingtime[d,j] for d in D, j in Jd[d]) + sum(1000000*lambda[m] for m in 1:K))
-
-    @constraint(master,consref_offtime[d in D, j in Jd[d]], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
+    #@objective(master, Min, sum(closingtime[d,j] for d in D, j in Jd[d].j) + sum(1000000*lambda[m] for m in 1:K))
+    @objective(master, Min, sum(1000000*lambda[m] for m in 1:K))
+    #@constraint(master,consref_offtime[d in D, j in Jd[d].j], sum(lambda[m]*1000 for m in 1:K) <= closingtime[d,j]) #TODO Only for consultations
 
     @constraint(master,convexitycons[g in Gp],
        sum(lambda[m] for m in 1:K if m in Pg[g].patients) == length(Pg[g].patients) )
@@ -33,15 +31,16 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
     @constraint(master,consref_onepatient[ d in D, j in Jd[d].j, i in I[d,j].i],
         0 <=1 )
 
+    println("test1")
+    return Masterproblem(master,[],consref_onepatient,convexitycons,lambda,[],I,env)
+    #return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I,env)
 
-    return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I,env)
-    # return consref_offtime, consref_onepatient, convexitycons,lambda,closingtime
 end
 "Return the sum of the maximal path of visits that visit x must preceed"
 function sumpath(Tdelta,x)
     sum = []
-    for y in filter(t->t[2] >= 0 ,Tdelta[x])
-        push!(sum,y[2]+sumpath(Tdelta,y[1]))
+    for y in (Tdelta |> @filter(_.visit1 == x) |> @map(_.visit2) |> collect)
+        push!(sum,Tdelta[x,y].delta+sumpath(Tdelta,y))
     end
     if length(sum)> 0
         return maximum(sum)
@@ -50,60 +49,99 @@ function sumpath(Tdelta,x)
     end
 end
 
-function visit(v,temp,perm,Tdelta,L)
-    if v in perm
-        return
-    end
-    v in temp ? error("Delta graph is not a DAG") :
-    push!(temp,v)
-    for v2 in filter(x-> x[2] >= 0 , Tdelta[v])
-        visit(v2[1],temp,perm,Tdelta,L)
-    end
-    filter!(x->x!= v ,temp)
-    push!(perm,v)
-    prepend!(L,v)
-    l = 1
-    while l < length(L)
-        Tdelta[v][L[l+1]] >= 0 ?  break : l += 1
-    end
-    if l < length(L) && l > 1
-        L[1:l] = sort!(L[1:l] ,by = x-> sumpath(Tdelta,x),rev= true)
-    end
-end
 
-function sortvisit(V_input,Tdelta)
-    L = Int64[]; temp = Int64[]; perm = Int64[]
+
+"Sorts visits in in the scheduling order for the heuristic"
+function sortvisit(V_input,Tdelta_input)
     V = copy(V_input)
-    while length(V) > 0
-        visit(pop!(V),temp,perm,Tdelta,L) #TODO WTF is going on here????
+    result = []
+    Tdelta = Tdelta_input |> @filter(_.visit1 in V_input && _.visit2 in V_input) |> NDSparse
+    curr = "Consultation"
+    V = filter!(x-> x != curr,V)
+    push!(result,curr)
+    while length(V)>0
+        temp = Tdelta |> @filter(_.visit1 in V && _.visit2 in result) |> @orderby_descending(sumpath(Tdelta,_.visit1))|> @map(_.visit1)|> collect
+        if length(temp)> 0
+            curr = first(temp)
+        else
+            curr = rand(V)
+        end
+        while true
+            temp2 = Tdelta[curr,:] |> @filter(!(_.visit2 in result))|> @orderby_descending(sumpath(Tdelta,_.visit2))|> @map(_.visit2)|> collect
+            if length(temp2)> 0
+                curr = first(temp2)
+            else
+                break
+            end
+        end
+        push!(result,curr)
+        V = filter!(x-> x != curr,V)
     end
-    return L
+    result
+end
+
+function isfree(plannedslots,dayID,startTime,endTime)
+    for p in plannedslots
+        if p.dayID == dayID && (startTime< p.endTime && endTime > p.startTime)
+            false
+        end
+    end
+    true
+end
+function daystoopen(plannedslots,dayID)
+    if dayID in (x->x.dayID).(plannedslots)
+        return 0
+    else
+        return 1
+    end
+end
+
+function lastestday(plannedslots,timeDelta,type)
+    if length(plannedslots) > 0
+        x = (x-> x.dayID -get(timeDelta,(type,x.type),(delta = -1,)).delta).(plannedslots)
+        return minimum(x)
+    end
+    return 100000
+end
+
+function buildschedule(timeslots,appointments,types, timeDelta)
+    plannedslots = []
+    for type in types
+        latest = lastestday(plannedslots,timeDelta,type)
+        x = @from i in timeslots begin
+            @where i.type == type && i.dayID <= latest && isfree(plannedslots,i.dayID,i.startTime,i.endTime)
+            @left_outer_join j in appointments on i.timeslotID equals j.timeslotID
+            @where i.timeslotID != j.timeslotID
+            @orderby daystoopen(plannedslots,i.dayID), descending(i.dayID)
+            @select a=i.timeslotID
+            @collect
+        end
+        length(x) == 0 && return []
+        y = first(x)
+        push!(plannedslots,timeslots[y])
+    end
+    return plannedslots
 end
 
 
-function generateInitialColumns!(masterproblem::Masterproblem,subproblems::Subproblems)
+function generateInitialColumns!(masterproblem::Masterproblem,sets,timeslots,timeDelta)
 
-    g = SimpleGraph()
-
-    for sub in subproblems.pricingproblems
-        Vsorted = sortvisit(sub.V)
-        for patient in sub.patients
-
-                for d in sub.D_v[Vsorted[1]]
-                 for J in sort(sub.J_d, by = x ->x[1])
-                     for i in I[d][j]
-
-                     end
-                 end
-                end
-            vend
-            if length(Vsorted)> 2
-                for v in Vsorted[2:end-1]
-
-
+    appointments = table((timeslots |> @filter(_.booked) |> @map((timeslotID = _.timeslotID ,resourceID=_.resourceID ,visitID= 0)) |> collect);pkey=[:timeslotID])
+    while true
+        done = true
+        for group in 1:length(sets.Pg)
+            types = sets.Pg[group].types
+            for patient in sets.Pg[group].patients
+                plannedslots = buildschedule(timeslots,appointments,types,timeDelta)
+                if length(plannedslots)> 0
+                    done = false
+                    appointments = append!(rows(appointments),(timeslotID = (x->x.timeslotID).(plannedslots),resourceID = (x->x.resourceID).(plannedslots),visitID  =-1 ))
+                    addcolumntomaster!(masterproblem,plannedslots,group,0)
                 end
             end
         end
+        done && break
+
     end
 end
 
@@ -137,15 +175,10 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
 
     touchedconstraints = ConstraintRef[]
     constraint_coefficients = Float64[]
-    #
-    # mptemp = zeros(length(P))
-    # mptemp[patient] = 1
-    # Atemp = zeros(length(P),length(DR),length(I),length(J))
-    # ttemp = zeros(length(DR),length(I),length(J))
-    # TODO Use the filter function for this
+
+
     for t in getIndexofPositiveVariables(pricingproblem.tvars)
-        # if tvalues[j,d] == xtimes[i,j,d]
-            #TODO they are all choosing same day, why is this
+
             push!(touchedconstraints,masterproblem.consref_offtime[t])
             push!(constraint_coefficients,value(pricingproblem.tvars[t]))
     end
@@ -164,8 +197,33 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
         base_name = "lambda_new[$(pricingproblem.intID),$(iteration)]_$(length(masterproblem.lambda))" ,
 
     ))
-    JuMP.set_objective_coefficient(masterproblem.model,masterproblem.lambda[end],1000*sum(value.(pricingproblem.yvars)))
+    JuMP.set_objective_coefficient(masterproblem.model,masterproblem.lambda[end],sum(value.(pricingproblem.yvars)))
     JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
+end
 
+function addcolumntomaster!(masterproblem::Masterproblem,timeslots,patientgroup::Int64,iteration)
+    touchedconstraints = ConstraintRef[]
+    constraint_coefficients = Float64[]
+    for timeslot in timeslots
+        d = timeslot.resourceID
+        j = timeslot.dayID
+        i = timeslot.timeslotID
+        push!(touchedconstraints,masterproblem.consref_onepatient[d,j,i])
+        push!(constraint_coefficients,1)
+    end
+    push!(touchedconstraints,masterproblem.convexitycons[patientgroup])
+    push!(constraint_coefficients,1)
 
+    push!(masterproblem.lambda,@variable(
+        masterproblem.model,
+        lower_bound = 0,
+        base_name = "lambda_[$(patientgroup),$(iteration)]_$(length(masterproblem.lambda))" ,
+
+    ))
+    columnprice = float(length(timeslots|> @groupby(_.dayID) |> collect))
+    println((x->x.type).(timeslots))
+    println((x->x.dayID).(timeslots))
+    println(columnprice)
+    JuMP.set_objective_coefficient(masterproblem.model,masterproblem.lambda[end],columnprice)
+    JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
 end

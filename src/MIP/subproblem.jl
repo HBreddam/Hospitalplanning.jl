@@ -49,7 +49,7 @@ function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslot
         sub = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=0))
         @variable(sub,xvars[v in V,d in Dv[v].d,j in Jd[d].j,i in I[d,j].i],Bin)
         @variable(sub,yvars[j = J],Bin)
-        @variable(sub,tvars[d = D,j = Jd[d].j])  #TODO Only for consultations
+        #@variable(sub,tvars[d = D,j = Jd[d].j])  #TODO Only for consultations
         @variable(sub,kvars[V,V], Bin)
         @variable(sub,gvars[V,V], Bin)
         for v1 in V, v2 in V
@@ -60,8 +60,8 @@ function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslot
 
         @objective(sub,Min, 0)
 
-            @constraint(sub,lastesttime[d =D ,j = Jd[d].j,i = I[d,j].i],
-                sum(xvars[v,d,j,i] for v in V if d in Dv[v].d && j in Jd[d].j && i in I[d,j].i) *Te(d,j,i) <= tvars[d,j])#TODO: somethings wrong here
+        #    @constraint(sub,lastesttime[d =D ,j = Jd[d].j,i = I[d,j].i],
+        #        sum(xvars[v,d,j,i] for v in V if d in Dv[v].d && j in Jd[d].j && i in I[d,j].i) *Te(d,j,i) <= tvars[d,j])#TODO: somethings wrong here
 
             @constraint(sub,demand[v in V],
                 sum(xvars[v,d,j,i] for d in Dv[v].d,j in Jd[d].j,i in I[d,j].i) == 1)
@@ -86,7 +86,8 @@ function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslot
                 >= Td(v1,v2)
                 -(1-kvars[v1,v2])*M2)
 
-        addPricingProblem(subproblems,length(subproblems.pricingproblems)+1,sub,xvars,yvars,tvars,kvars,gvars,patient.intID,) ##TODO stop adding all that stuff
+                #addPricingProblem(subproblems,length(subproblems.pricingproblems)+1,sub,xvars,yvars,tvars,kvars,gvars,p,) ##TODO stop adding all that stuff
+        addPricingProblem(subproblems,length(subproblems.pricingproblems)+1,sub,xvars,yvars,[],kvars,gvars,p,) ##TODO stop adding all that stuff
 
 end
 
@@ -103,9 +104,11 @@ end
 
 
 
-function solveSub!(sub,ϕ,θ,κ)
+function solveSub!(sub,sets,ϕ,θ,κ)
+    p = sub.intID
 
-    @objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sub.J) - sum(sub.tvars[d,j]*ϕ[d,j] for d in sub.D,j in sub.Jd[d],i in sub.I[d,j].i ) - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sub.V, d in sub.Dv[v].d,j in sub.Jd[d],i in sub.I[d,j].i)-κ[sub.intID] ) #TODO Kappa times number of patients in group
+    #@objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J) - sum(sub.tvars[d,j]*ϕ[d,j] for d in sets.Dp[p].d,j in sets.Jd[d].j,i in sets.I[d,j].i ) - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] ) #TODO Kappa times number of patients in group
+    @objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J)  - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] ) #TODO Kappa times number of patients in group
 
     optimize!(sub.model)
     status = termination_status(sub.model)

@@ -7,6 +7,7 @@ mutable struct Masterproblem
     closingtime
     I
     env
+    
 end
 
 mutable struct PricingProblem
