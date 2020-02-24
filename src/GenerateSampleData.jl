@@ -1,100 +1,94 @@
 using XLSX
 using DataFrames
 using Random
+using UUIDs
+using JuliaDB
+using Lazy
 
-
-function generateTreatmentplan(row::DataFrameRow,bestord::Date,columns)
-    treatmentplan = []
+#TODO sort treatmentplan by default
+function generateTreatmentplan!(visits::IndexedTable,row::DataFrameRow,bestord::Pair{Int64,Date},columns::Dict{Symbol,String},patientID)
         for col in columns
             if !ismissing(row[col[1]])
-
-                if row[col[1]] == 1
-                    push!(treatmentplan,Hospitalplanning.UnplannedVisit("test",bestord,col[2]))
-                elseif rand() < row[col[1]]
-                    push!(treatmentplan,Hospitalplanning.UnplannedVisit("test",bestord,col[2]))
+                if row[col[1]] == 1 || rand() < row[col[1]]
+                    push!(rows(visits),(intID=length(visits)+1,patientID=patientID,bestord=bestord,req_type=col[2]))
                 end
             end
         end
-    treatmentplan
+
 end
 
 function readPatientTable(path,sheet,columns,mastercalendar)
     patientOverview = DataFrame(XLSX.readtable(path,sheet)...)
-    patients = []
+    patients = JuliaDB.table((intID=Int64[],diagnosis=String[],bestord=Pair{Int64,Date}[],);pkey=[:intID])
+    visits =  JuliaDB.table((intID=Int64[],patientID=Int64[],bestord=Pair{Int64,Date}[],req_type=String[]);pkey=[:intID])
     for row in eachrow(patientOverview)
         if row.Kategori === missing
             continue
         end
         for i = 1:Int(row.Antal)
-            bestord = rand(mastercalendar.workdays)
-            treatmentplan = generateTreatmentplan(row,bestord,columns)
-            push!(patients,Patient(string(row.Kategori, "_" , i),0,row.Diagnoser1,treatmentplan ))
+            bestord = rand(mastercalendar)
+            intID=length(patients)+1
+            generateTreatmentplan!(visits,row,bestord,columns,intID)
+            push!(rows(patients),(intID=intID,diagnosis="test",bestord=bestord,))
         end
     end
-    patients
+    patients, visits
 end
 
-function readWorkPattern(path::String,sheet::String,resources::Array{Resource}=Resource[])
+function readWorkPattern(path::String,sheet::String)
+    resources = JuliaDB.table((intID=Int64[],id=String[],type=String[],name=String[],qualifications=Dict{String,String}[],);pkey=[:intID])
+    workpattern = JuliaDB.table((resourceID=Int64[],type = String[],weekdayID=Int64[],oddWeek=Bool[],timeslotID=Int64[],startTime=Time[],endTime=Time[]);pkey=[:resourceID,:weekdayID,:timeslotID])
+    timeslots = JuliaDB.table((resourceID=Int64[],type = String[], dayID=Int64[],timeslotID=Int64[],startTime=Time[],endTime=Time[],booked=Bool[]);pkey=[:resourceID,:dayID,:timeslotID])
+    readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
+end
+
+function readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
         columns = Dict{String,Int}("Monday"=>1,"Tuesday"=> 2, "Wednesday" => 3, "Thursday" => 4, "Friday"=> 5)
         wp_df = DataFrame(XLSX.readtable(path,sheet)...)
-        for resource_df in groupby(wp_df,:Resource,skipmissing = true)
+        for resource_df in DataFrames.groupby(wp_df,[:Type,:Resource],skipmissing = true)
             cur_resourceid = string(resource_df[1,:Type],"_",resource_df[1,:Resource])
-            cur_resourcelocation = findfirst(x -> x.id == cur_resourceid, resources)
-            if isnothing(cur_resourcelocation)
-                push!(resources,Resource(resource_df[1,:Type],string(resource_df[1,:Resource])))
-                cur_resourcelocation = length(resources)
+            tempID = filter(i -> i.id == cur_resourceid,resources)
+            if length(tempID) == 0
+                type = string(resource_df[1,:Type])
+                name = string(resource_df[1,:Resource])
+                resourceid = string(resource_df[1,:Type],"_",resource_df[1,:Resource])
+                intID = length(resources)+1
+
+                push!(rows(resources),(intID=intID,id=resourceid,type=type,name=name,qualifications=Dict("name" => name,"type"=>type)))
+
+            elseif length(tempID) == 1
+                intID = first(tempID)
+            else
+                throw("Error: Multiple resources with same ID")
             end
-            evencalendar = Calendar()
-            oddcalendar = Calendar()
             for day in columns
-                evenday = Workday(day[2],Even)
-                oddday = Workday(day[2],Odd)
                 if ismissing(resource_df[1,Symbol(string(day[1],"_start"))]) continue end;
                 for row in eachrow(resource_df)
                     if ismissing(row[Symbol(string(day[1],"_start"))]) ||row[Symbol(string(day[1],"_start"))]=="PAUSE"
                          continue
                     end
-                    addTimeslot!(evenday,row[Symbol(string(day[1],"_start"))],row[Symbol(string(day[1],"_end"))])
-                    if row.Weeks in ("All","Even")
-                    end
-                    if row.Weeks in ("All","Odd")
-                        addTimeslot!(oddday,row[Symbol(string(day[1],"_start"))],row[Symbol(string(day[1],"_end"))])
-                    end
+                    push!(rows(workpattern),(resourceID = intID,type = string(resource_df[1,:Type]),weekdayID = day[2],oddWeek = !(row.Weeks in ("All","Even")),timeslotID = length(workpattern)+1, startTime = row[Symbol(string(day[1],"_start"))],endTime = row[Symbol(string(day[1],"_end"))]))
+                    push!(rows(workpattern),(resourceID = intID,type = string(resource_df[1,:Type]),weekdayID = day[2],oddWeek = (row.Weeks in ("All","Odd")),timeslotID = length(workpattern)+1, startTime = row[Symbol(string(day[1],"_start"))],endTime = row[Symbol(string(day[1],"_end"))]))
                 end
-                addWorkday!(evencalendar,evenday)
-                addWorkday!(oddcalendar,oddday)
             end
-            addWorkPattern(resources[cur_resourcelocation],oddcalendar,evencalendar)
-
-
         end
-        resources
+        resources, timeslots, workpattern
 end
 
-function generateCalendarFromPattern!(resources::Array{Resource},masterCalendar::MasterCalendar)
-    for cur_resource in resources
-        for day in masterCalendar.workdays
 
-            daypatterns = filter(x -> (x.weekday == dayofweek(day) && week(day)%2 ==Int(x.weektype)%2) ,cur_resource.workpattern.workdays)
-            if length(daypatterns) > 0
-                daypatterns[1].date = day
-
-                addWorkday!(cur_resource.calendar,daypatterns[1])
-            end
-
-        end
-    end
-end
-
-function generateRandomCalendar!(resources::Array{Resource},occupancyrate::Float64)
-    for cur_resource in resources
-        for cur_workday in cur_resource.calendar.workdays
-            for cur_timeslot in cur_workday.timeslots
-                if rand() < occupancyrate
-                    cur_timeslot.status = booked
-                else
-                        cur_timeslot.status = free
+function generateCalendarFromPattern!(timeslots,resources::IndexedTable,workpattern,masterCalendar::Dict{Int64,Date},occupancyrate = 1.0)#
+    for cur_resource in rows(resources)
+        for _day in sort(collect(masterCalendar))
+            xtemp  =  @from i in workpattern begin
+                    @where i.resourceID == cur_resource.intID && i.weekdayID == dayofweek(_day[2]) && week(_day[2])%2 == i.oddWeek
+                    @select {resourceID=i.resourceID,type= i.type,startTime= i.startTime,endTime = i.endTime}
+                    @collect
                 end
+            if length(xtemp) > 0
+                x = table(xtemp)
+                y = (:dayID => fill(_day[1],length(x)),:timeslotID => [i for i in (length(rows(timeslots))+1):(length(rows(timeslots))+length(x))],:booked => [y < occupancyrate  for y in rand(length(x))] )
+                x = transform(x, y)
+                append!(rows(timeslots),rows(x))
             end
         end
     end

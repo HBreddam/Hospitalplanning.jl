@@ -1,43 +1,49 @@
 
-struct MasterCalendar
-    workdays::Array{Date}
-
-    MasterCalendar(startDate::Date,enddate::Date) = new(filter(date -> dayofweek(date)<=5, startDate:Day(1):enddate))
+function MasterCalendar(startdate::Date,enddate::Date)
+    Dict((date-startdate).value+1 => date for date = filter(td -> dayofweek(td) <= 5, startdate:Day(1):enddate))
 end
+
+function MasterCalendar(mastercalendar::Dict{Int64,Date},startdate::Date,enddate::Date)
+    filter(date -> startdate <date[2] < enddate,mastercalendar)
+ end
 
 @enum STATUS free = 1 booked = 2
 mutable struct Timeslot
+    date::Pair{Int64,Date}
+    intID::Int
     startTime::Time
     endTime::Time
 
     status::STATUS
 
-    Timeslot(startTime::DateTime,endTime::DateTime)= new(Time(startTime),Time(startTime),free)
-    Timeslot(startTime::Time,endTime::Time)= new(startTime,endTime,free)
+    Timeslot(date::Pair{Int64,Date},intID::Int,startTime::DateTime,endTime::DateTime)= new(date,intID,Time(startTime),Time(startTime),free)
+    Timeslot(date::Pair{Int64,Date},intID::Int,startTime::Time,endTime::Time)= new(date,intID,startTime,endTime,free)
 
 end
+
 @enum WEEK Odd = 1 Even = 2
 mutable struct Workday
-    date::DateTime
+    date::Pair{Int64,Date}
     timeslots::Array{Timeslot}
 
     weekday::Int
     weektype::WEEK
 
-    Workday() = new(Date(0),[])
-    Workday(weekday::Int,weektype::WEEK) = new(Date(0),[],weekday,weektype)
-    Workday(date::DateTime,timeslots::Array{Timeslot},weekday::WEEK,weektype::Int) = new(date,timeslots,weekday,weektype)
+    Workday() = new((0 =>Date(0)),[])
+    Workday(weekday::Int,weektype::WEEK) = new((0 =>Date(0)),[],weekday,weektype)
+    Workday(date::Pair{Int64,Date},timeslots::Array{Timeslot},weekday::WEEK,weektype::Int) = new(date,timeslots,weekday,weektype)
 end
 function addTimeslot!(workday::Workday,startTime::Time,endTime::Time)
-    push!(workday.timeslots,Timeslot(startTime,endTime))
+    push!(workday.timeslots,Timeslot(workday.date,length(workday.timeslots)+1,startTime,endTime))
 end
 
 function addTimeslot!(workday::Workday,startTime::String,endTime::String)
-    push!(workday.timeslots,Timeslot(Dates.Time(startTime),Dates.Time(endTime)))
+    push!(workday.timeslots,Timeslot(workday.date,length(workday.timeslots)+1,Dates.Time(startTime),Dates.Time(endTime)))
 end
 
 
 abstract type AbstractCalendar end
+
 
 
 struct Calendar <: AbstractCalendar
@@ -54,7 +60,11 @@ function Base.:(+)(cal1::AbstractCalendar, cal2::AbstractCalendar)
 end
 
 
-function addWorkday!(calendar::Calendar,workday::Workday)
+function addWorkday!(calendar::Calendar,workday::Workday,day::Pair{Int64,Date}=(0=>Date(0)))
+    workday.date = day
+    for y in workday.timeslots
+        y.date = day
+    end
     push!(calendar.workdays,workday)
-    sort!(calendar.workdays,by = x ->(x.date,x.weekday))
+    sort!(calendar.workdays,by = x ->(x.date[1],x.weekday))
 end

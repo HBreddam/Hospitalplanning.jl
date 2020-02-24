@@ -13,28 +13,33 @@ function Base.:(==)(r1::String, r2::AbstractResource)
     return  r1 == r2.id
 end
 
-struct Offperiod
-    id::String
-    starttime::DateTime
-    endtime::DateTime
-
-    Offperiod(id,starttime,endtime) = new(id,starttime,endtime)
-end
+# struct Offperiod DELETE ME
+#     id::String
+#     starttime::DateTime
+#     endtime::DateTime
+#
+#     Offperiod(id,starttime,endtime) = new(id,starttime,endtime)
+# end
 
 mutable struct Resource <: AbstractResource
+    intID::Int
     id::String
     type::String
     name::String
-
+    qualifications::Dict{String,String}
     workpattern::Calendar
 
     calendar::Calendar
-    offperiods::Array{Offperiod}
+    #offperiods::Array{Offperiod} DELETE ME
 
-    Resource(type::String,name::String) = new(string(type, "_" , name),type,name,Calendar(),Calendar(),Offperiod[])
+    Resource(intID::Int,type::String,name::String) = new(intID,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type),Calendar(),Calendar(),Offperiod[])
+    Resource(type::String,name::String) = new(0,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type)Calendar(),Calendar(),Offperiod[])
+end
+
+function addNewResource!(resources::Array{Resource},type::String,name::String)
+    any(r-> r.id == string(type, "_" , name),resources) ? error("Not Unique resource id") : push!(resources,Resource(length(resources)+1,type,name))
 end
 
 function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)
     resource.workpattern = oddcalendar + evencalendar
-
 end
