@@ -38,19 +38,16 @@ end
 function readWorkPattern(path::String,sheet::String)
     resources = JuliaDB.table((intID=Int64[],id=String[],type=String[],name=String[],qualifications=Dict{String,String}[],);pkey=[:intID])
     workpattern = JuliaDB.table((resourceID=Int64[],type = String[],weekdayID=Int64[],oddWeek=Bool[],timeslotID=Int64[],startTime=Time[],endTime=Time[]);pkey=[:resourceID,:weekdayID,:timeslotID])
-    timeslots = JuliaDB.table((resourceID=Int64[],type = String[], dayID=Int64[],timeslotID=Int64[],startTime=Time[],endTime=Time[],booked=Bool[]);pkey=[:resourceID,:dayID,:timeslotID]) #TODO Make NDSparse
+    timeslots = JuliaDB.table((resourceID=Int64[],type = String[], dayID=Int64[],timeslotID=Int64[],startTime=Time[],endTime=Time[],booked=Bool[]);pkey=[:resourceID,:dayID,:timeslotID])
     readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
 end
 
 function readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
-
         columns = Dict{String,Int}("Monday"=>1,"Tuesday"=> 2, "Wednesday" => 3, "Thursday" => 4, "Friday"=> 5)
         wp_df = DataFrame(XLSX.readtable(path,sheet)...)
-
         for resource_df in DataFrames.groupby(wp_df,[:Type,:Resource],skipmissing = true)
             cur_resourceid = string(resource_df[1,:Type],"_",resource_df[1,:Resource])
             tempID = filter(i -> i.id == cur_resourceid,resources)
-
             if length(tempID) == 0
                 type = string(resource_df[1,:Type])
                 name = string(resource_df[1,:Resource])
@@ -79,7 +76,7 @@ function readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::St
 end
 
 
-function generateCalendarFromPattern!(timeslots,resources::IndexedTable,workpattern,masterCalendar::Dict{Int64,Date},occupancyrate = 1.0)#TODO could be faster with Query
+function generateCalendarFromPattern!(timeslots,resources::IndexedTable,workpattern,masterCalendar::Dict{Int64,Date},occupancyrate = 1.0)#
     for cur_resource in rows(resources)
         for _day in sort(collect(masterCalendar))
             xtemp  =  @from i in workpattern begin

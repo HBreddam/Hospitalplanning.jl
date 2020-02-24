@@ -1,9 +1,9 @@
 
 
-#TODO first set up the sets, then group on the different hashes, set a subproblem for each group.
-#TODO Add a variable for each patient in the group to master problem.
+
+
 #TODO a weight for y_j based on how far away from best ord it is.
-#TODO maybe dict of hash => subproblem or reverse for storing everything.
+
 
 function setup_sub!(subproblems,patients::IndexedTable,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},TimeDelta,sets,months)
 
@@ -31,13 +31,13 @@ function getTimeDelta(timeDelta,visits,v1,v2)
 end
 
 
-function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},timeDelta,sets,months)
+function setup_sub!(subproblems,patientgroup::Int64,visits,resources::IndexedTable,timeslots,mastercalendar::Dict{Int,Date},timeDelta,sets,months)
     M1 = 10
     M2 = 1000
 
     Td(v1,v2) = getTimeDelta(timeDelta,visits,v1,v2)
-
-    V = sets.Vp[p].v; Dv = sets.Dv; D = sets.Dp[p].d; J = sets.J ;Jd = sets.Jd; I = sets.I
+    p = sets.Pg[patientgroup].patients[1]
+    V = sets.Vp[p].v; Dv = sets.Dv; J = sets.J ;Jd = sets.Jd; I = sets.I
     Ts(d,j,i) = Dates.value(timeslots[d,j,i].startTime)/60000000000
     Te(d,j,i) = Dates.value(timeslots[d,j,i].endTime)/60000000000
 
@@ -45,6 +45,12 @@ function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslot
     startdate = max(minimum(mastercalendar)[2],min(startofmonth(maximum(mastercalendar)[2]-Month(months)),startofmonth(bestordmin[2])-Month(div(months,2))))
     enddate = startdate + Month(months)-Day(1)
     subMastercalendar = MasterCalendar(mastercalendar,startdate,enddate)
+    if p== 6
+        println("V = $V")
+        for v in V
+            println(Dv[v].d)
+        end
+    end
 
         sub = Model(with_optimizer(Gurobi.Optimizer,OutputFlag=0))
         @variable(sub,xvars[v in V,d in Dv[v].d,j in Jd[d].j,i in I[d,j].i],Bin)
@@ -86,8 +92,8 @@ function setup_sub!(subproblems,p::Int64,visits,resources::IndexedTable,timeslot
                 >= Td(v1,v2)
                 -(1-kvars[v1,v2])*M2)
 
-                #addPricingProblem(subproblems,length(subproblems.pricingproblems)+1,sub,xvars,yvars,tvars,kvars,gvars,p,) ##TODO stop adding all that stuff
-        addPricingProblem(subproblems,length(subproblems.pricingproblems)+1,sub,xvars,yvars,[],kvars,gvars,p,) ##TODO stop adding all that stuff
+
+        addPricingProblem(subproblems,patientgroup,sub,xvars,yvars,[],kvars,gvars,p,) ##TODO stop adding all that stuff
 
 end
 
@@ -105,10 +111,10 @@ end
 
 
 function solveSub!(sub,sets,ϕ,θ,κ)
-    p = sub.intID
+    p = sets.Pg[sub.intID].patients[1]
 
-    #@objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J) - sum(sub.tvars[d,j]*ϕ[d,j] for d in sets.Dp[p].d,j in sets.Jd[d].j,i in sets.I[d,j].i ) - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] ) #TODO Kappa times number of patients in group
-    @objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J)  - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] ) #TODO Kappa times number of patients in group
+    #@objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J) - sum(sub.tvars[d,j]*ϕ[d,j] for d in sets.Dp[p].d,j in sets.Jd[d].j,i in sets.I[d,j].i ) - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] )
+    @objective(sub.model, Min, sum(1000*sub.yvars[j] for j in sets.J)  - sum(sub.xvars[v,d,j,i] * θ[d,j,i] for v in sets.Vp[p].v, d in sets.Dv[v].d,j in sets.Jd[d].j,i in sets.I[d,j].i)-κ[sub.intID] )
 
     optimize!(sub.model)
     status = termination_status(sub.model)

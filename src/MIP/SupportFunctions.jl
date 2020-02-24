@@ -47,7 +47,7 @@ function buildDp(resources,visits)
     visits |> @groupjoin(resources,_.req_type,_.type, (v=_.intID,p=_.patientID,d=map(x->x.intID,__))) |> @groupby(_.p) |>@map((p = key(_),d = (collect(Iterators.flatten(_.d)) ))) |>NDSparse
 end
 "Helper function for grouping patients. Produces a tuple of the patients group"
-function patientgroup(visits,Vp,id,timeDelta)
+function patientgroup(visits,Vp,id)
    tempvisits = visits[Vp[id].v]
 
    (sort(JuliaDB.select(tempvisits,:req_type)),
@@ -57,13 +57,13 @@ end
 
 "Produces a IndexedTable of patient groups based on the function patientgroup()"
 function buildPg(patients,visits,Vp,timeDelta)
-    table(patients |> @groupby(patientgroup(visits,Vp,_.intID,timeDelta))|> @map((types=sortvisit(key(_)[1],timeDelta),startmonth=key(_)[2],endmonths=key(_)[3],patients= map(x->x.intID,_))) |> collect)
+    table(patients |> @groupby(patientgroup(visits,Vp,_.intID))|> @map((types=sortvisit(key(_)[1],timeDelta),startmonth=key(_)[2],endmonths=key(_)[3],patients= map(x->x.intID,_))) |> collect)
 end
 
 
 getIndexofPositiveVariables(vars) = filter(k-> value(vars[k]) > 0 ,eachindex(vars))
 getvalueofPositiveVariables(vars) = value.((x->vars[x]).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))))
-getPositiveVariables(vars) = (x->vars[x]).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))) #TODO er det en omvej til en genvej, med først at bruge index og derefter bruge vars[x]?`
-getPositiveVariablesAndValues(vars) = (x->(vars[x], value(vars[x]))).(filter(k-> value(vars[k]) > 0 ,eachindex(vars))) #TODO er det en omvej til en genvej, med først at bruge index og derefter bruge vars[x]?`
+getPositiveVariables(vars) = (x->vars[x]).(filter(k-> value(vars[k]) > 0 ,eachindex(vars)))
+getPositiveVariablesAndValues(vars) = (x->(vars[x], value(vars[x]))).(filter(k-> value(vars[k]) > 0 ,eachindex(vars)))
 
 hashSets(subproblem) = hash((subproblem.D_v,subproblem.J_d,subproblem.I,subproblem.Ts,subproblem.Te))

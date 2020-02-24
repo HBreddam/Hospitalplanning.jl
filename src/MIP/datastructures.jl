@@ -7,7 +7,7 @@ mutable struct Masterproblem
     closingtime
     I
     env
-    
+
 end
 
 mutable struct PricingProblem
@@ -52,9 +52,9 @@ function addsets!(subproblems,patient,V,D,D_v,J,J_d,I,Ts,Te)
 end
 
 
-function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tvars,kvars,gvars,patient,)
+function addPricingProblem(subproblems,patientID,sub::JuMP.Model,xvars,yvars,tvars,kvars,gvars,patient,)
         curPP = PricingProblem()
-        curPP.intID = length(subproblems.pricingproblems)+1
+        curPP.intID = patientID
         curPP.model = sub
         curPP.xvars = xvars
         curPP.yvars = yvars
@@ -64,7 +64,7 @@ function addPricingProblem(subproblems,hashofsets,sub::JuMP.Model,xvars,yvars,tv
         curPP.patients = [patient]
 
 
-        subproblems.pricingproblems[hashofsets] = curPP
+        subproblems.pricingproblems[patientID] = curPP
 end
 
 function getsubproblem(subproblems,patient)

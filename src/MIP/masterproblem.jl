@@ -13,7 +13,7 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
     Jd = sets.Jd
     I = sets.I
 
-    @variable(master,lambda[1:K] >= 0) #TODO make integer at relax
+    @variable(master,lambda[1:K] >= 0)
     #@variable(master,closingtime[d in D, j in Jd[d].j] >= 0)
     # for d in D, j in Jd[d].j
     #     set_lower_bound(closingtime[d,j],getTlowerbound(timeslots,d,j))
@@ -31,7 +31,6 @@ function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,
     @constraint(master,consref_onepatient[ d in D, j in Jd[d].j, i in I[d,j].i],
         0 <=1 )
 
-    println("test1")
     return Masterproblem(master,[],consref_onepatient,convexitycons,lambda,[],I,env)
     #return Masterproblem(master,consref_offtime,consref_onepatient,convexitycons,lambda,closingtime,I,env)
 
@@ -80,10 +79,10 @@ function sortvisit(V_input,Tdelta_input)
     result
 end
 
-function isfree(plannedslots,dayID,startTime,endTime)
+function isfree(plannedslots,timeDelta,type,dayID,startTime,endTime)
     for p in plannedslots
-        if p.dayID == dayID && (startTime< p.endTime && endTime > p.startTime)
-            false
+        if p.dayID == dayID && ((startTime< p.endTime && endTime > p.startTime) || (haskey(timeDelta,(type,p.type)) && endTime > p.startTime))
+            return false
         end
     end
     true
@@ -109,7 +108,7 @@ function buildschedule(timeslots,appointments,types, timeDelta)
     for type in types
         latest = lastestday(plannedslots,timeDelta,type)
         x = @from i in timeslots begin
-            @where i.type == type && i.dayID <= latest && isfree(plannedslots,i.dayID,i.startTime,i.endTime)
+            @where i.type == type && i.dayID <= latest && isfree(plannedslots,timeDelta,i.type,i.dayID,i.startTime,i.endTime)#TODO her mangler vi at tjekke for starttid
             @left_outer_join j in appointments on i.timeslotID equals j.timeslotID
             @where i.timeslotID != j.timeslotID
             @orderby daystoopen(plannedslots,i.dayID), descending(i.dayID)
@@ -221,9 +220,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,timeslots,patientgroup:
 
     ))
     columnprice = float(length(timeslots|> @groupby(_.dayID) |> collect))
-    println((x->x.type).(timeslots))
-    println((x->x.dayID).(timeslots))
-    println(columnprice)
+
     JuMP.set_objective_coefficient(masterproblem.model,masterproblem.lambda[end],columnprice)
     JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
 end

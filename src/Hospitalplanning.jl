@@ -12,8 +12,7 @@ using Lazy
 include("Misc.jl")
 
 include("Resource.jl")
-include("Visit.jl")
-include("Patient.jl")
+
 include("GenerateSampleData.jl")
 
 include("MIP/datastructures.jl")
