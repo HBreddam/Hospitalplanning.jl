@@ -20,26 +20,3 @@ end
 #
 #     Offperiod(id,starttime,endtime) = new(id,starttime,endtime)
 # end
-
-mutable struct Resource <: AbstractResource
-    intID::Int
-    id::String
-    type::String
-    name::String
-    qualifications::Dict{String,String}
-    workpattern::Calendar
-
-    calendar::Calendar
-    #offperiods::Array{Offperiod} DELETE ME
-
-    Resource(intID::Int,type::String,name::String) = new(intID,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type),Calendar(),Calendar(),Offperiod[])
-    Resource(type::String,name::String) = new(0,string(type, "_" , name),type,name,Dict("name" => name,"type"=>type)Calendar(),Calendar(),Offperiod[])
-end
-
-function addNewResource!(resources::Array{Resource},type::String,name::String)
-    any(r-> r.id == string(type, "_" , name),resources) ? error("Not Unique resource id") : push!(resources,Resource(length(resources)+1,type,name))
-end
-
-function addWorkPattern(resource::Resource,oddcalendar::Calendar,evencalendar::Calendar)
-    resource.workpattern = oddcalendar + evencalendar
-end

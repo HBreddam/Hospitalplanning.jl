@@ -1,6 +1,9 @@
 using Hospitalplanning
 using Test
+using BenchmarkTools
+HP = Hospitalplanning
 
 @testset "Hospitalplanning.jl" begin
-    # Write your own tests here.
+    include("readwritedata_tests.jl")
+    include("solution_tests.jl")
 end
