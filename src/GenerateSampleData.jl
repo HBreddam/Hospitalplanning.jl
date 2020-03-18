@@ -1,26 +1,22 @@
-using XLSX
-using DataFrames
-using Random
-using UUIDs
-using JuliaDB
-using Lazy
+
 
 #TODO sort treatmentplan by default
-function generateTreatmentplan!(visits::IndexedTable,row::DataFrameRow,bestord::Pair{Int64,Date},columns::Dict{Symbol,String},patientID)
+function generateTreatmentplan!(visits::IndexedTable,row,bestord,columns::Dict{Symbol,String},patientID)
         for col in columns
             if !ismissing(row[col[1]])
                 if row[col[1]] == 1 || rand() < row[col[1]]
-                    push!(rows(visits),(intID=length(visits)+1,patientID=patientID,bestord=bestord,req_type=col[2]))
+                    push!(rows(visits),(intID=length(visits)+1,patientID=patientID,bestord=bestord[1],bestord_date=bestord[2],req_type=col[2]))
                 end
             end
         end
 
 end
 
+"Read aggregated table data of the format found in 'test/Sample data/PatientOverview_test.xlsx'. Produced an table of patients and a table of visists"
 function readPatientTable(path,sheet,columns,mastercalendar)
     patientOverview = DataFrame(XLSX.readtable(path,sheet)...)
-    patients = JuliaDB.table((intID=Int64[],diagnosis=String[],bestord=Pair{Int64,Date}[],);pkey=[:intID])
-    visits =  JuliaDB.table((intID=Int64[],patientID=Int64[],bestord=Pair{Int64,Date}[],req_type=String[]);pkey=[:intID])
+    patients = JuliaDB.table((intID=Int64[],diagnosis=String[],bestord=Int64[],bestord_date=Date[]);pkey=[:intID])
+    visits =  JuliaDB.table((intID=Int64[],patientID=Int64[],bestord=Int64[],bestord_date=Date[],req_type=String[]);pkey=[:intID])
     for row in eachrow(patientOverview)
         if row.Kategori === missing
             continue
@@ -29,14 +25,15 @@ function readPatientTable(path,sheet,columns,mastercalendar)
             bestord = rand(mastercalendar)
             intID=length(patients)+1
             generateTreatmentplan!(visits,row,bestord,columns,intID)
-            push!(rows(patients),(intID=intID,diagnosis="test",bestord=bestord,))
+            push!(rows(patients),(intID=intID,diagnosis="test",bestord=bestord[1],bestord_date=bestord[2]))
         end
     end
     patients, visits
 end
 
 function readWorkPattern(path::String,sheet::String)
-    resources = JuliaDB.table((intID=Int64[],id=String[],type=String[],name=String[],qualifications=Dict{String,String}[],);pkey=[:intID])
+    resources = JuliaDB.table((intID=Int64[],id=String[],type=String[],name=String[],);pkey=[:intID])
+    #resources = JuliaDB.table((intID=Int64[],id=String[],type=String[],name=String[],qualifications=Dict{String,String}[],);pkey=[:intID])
     workpattern = JuliaDB.table((resourceID=Int64[],type = String[],weekdayID=Int64[],oddWeek=Bool[],timeslotID=Int64[],startTime=Time[],endTime=Time[]);pkey=[:resourceID,:weekdayID,:timeslotID])
     timeslots = JuliaDB.table((resourceID=Int64[],type = String[], dayID=Int64[],timeslotID=Int64[],startTime=Time[],endTime=Time[],booked=Bool[]);pkey=[:resourceID,:dayID,:timeslotID])
     readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)

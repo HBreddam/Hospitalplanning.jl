@@ -51,8 +51,8 @@ function patientgroup(visits,Vp,id)
    tempvisits = visits[Vp[id].v]
 
    (sort(JuliaDB.select(tempvisits,:req_type)),
-   Dates.Month(reduce(max,tempvisits,select=:bestord)[2]),
-   Dates.Month(reduce(min,tempvisits,select=:bestord)[2]))
+   Dates.Month(reduce(max,tempvisits,select=:bestord_date)),
+   Dates.Month(reduce(min,tempvisits,select=:bestord_date)))
 end
 
 "Produces a IndexedTable of patient groups based on the function patientgroup()"

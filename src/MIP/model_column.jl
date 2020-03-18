@@ -189,6 +189,7 @@ function deadline()
     pass = true
     if true
         pass = false
+        println("deadline not implemented")
     end
     return pass
 end
@@ -196,8 +197,10 @@ function daysused(mp,plannedappointments)
     pass = true
     if sum(plannedappointments |> @groupby(_.patientID) |> @map(length(unique(map(x->x.dayID,_)))) |> collect) != JuMP.objective_value(mp.model)
         pass = false
+        println("Mip model objective wrong")
+    else
+        println("Mip model objective correct")
     end
-    pass && "Mip model objective correct"
     return pass
 end
 

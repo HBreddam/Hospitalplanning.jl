@@ -42,7 +42,7 @@ function setup_sub!(subproblems,patientgroup::Int64,visits,resources::IndexedTab
     Te(d,j,i) = Dates.value(timeslots[d,j,i].endTime)/60000000000
 
     (bestordmin,bestordmax) = reduce((min,max),visits[V],select=:bestord)
-    startdate = max(minimum(mastercalendar)[2],min(startofmonth(maximum(mastercalendar)[2]-Month(months)),startofmonth(bestordmin[2])-Month(div(months,2))))
+    startdate = max(minimum(mastercalendar)[2],min(startofmonth(maximum(mastercalendar)[2]-Month(months)),startofmonth(mastercalendar[bestordmin])-Month(div(months,2))))
     enddate = startdate + Month(months)-Day(1)
     subMastercalendar = MasterCalendar(mastercalendar,startdate,enddate)
     if p== 6
