@@ -14,7 +14,7 @@ testpath_visits = "./test/Sample data/visittest_output.csv"
 testpath_timeslots = "./test/Sample data/timeslottest_output.csv"
 path_TimeDelta = "./test/Sample data/GUCHamb_timeDelta.csv"
 
-patients = HP.loadpatient(testpath_patient)
+patients = HP.loadpatients(testpath_patient)
 visits = HP.loadvisits(testpath_visits)
 resources = HP.loadresources(testpath_resources)
 timeslots = HP.loadtimeslots(testpath_timeslots)

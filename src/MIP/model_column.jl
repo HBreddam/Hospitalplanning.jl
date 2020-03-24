@@ -2,6 +2,15 @@
 EPSVALUE = 0.1
 
 
+
+"""
+columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
+
+Builds the optimization problem and solves it.
+If the problem should only be set up and not solved, apply setuponly = true.
+The problem can be solved with multithreading by setting multithreading = true
+
+"""
 function columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
     println("Building sets")
     timeslotsNDSparse = ndsparse(timeslots)
@@ -82,7 +91,7 @@ function columngeneration(patients, visits, resources, timeslots, mastercalendar
 
     return mp, subproblems, sets
 end
-
+"Find a visit that fits with a patient and a visittype"
 function findvisit(visits,type,patient)
    result = @from i in visits begin
       @where i.req_type == type && i.patientID == patient
@@ -116,6 +125,7 @@ function extractsolution(mp,sets,timeslots,visits)
     plannedappointments
 end
 
+"Used to validate that the solution contain all visits"
 function allvisits(visits,plannedappointments)
     pass = true
     novisitsfound = @from i in plannedappointments begin
@@ -153,6 +163,7 @@ function allvisits(visits,plannedappointments)
     return pass
 end
 
+"Used to validate that every visit is in the correct order according to timeDelta"
 function correctorder(plannedappointments,timeslots,timeDelta)
     pass = true
     for patient in plannedappointments |> @groupby(_.patientID)|> @map((patientID =key(_), timeslots= map(x-> x.timeslotID,_))) |> collect
@@ -178,13 +189,6 @@ function correctorder(plannedappointments,timeslots,timeDelta)
 end
 
 
-function nooverlaps()
-    pass = true
-    if true
-        pass = false
-    end
-    return pass
-end
 function deadline()
     pass = true
     if true
@@ -193,6 +197,8 @@ function deadline()
     end
     return pass
 end
+
+"Used to validate that the objective of the masterproblem is calculated correctly"
 function daysused(mp,plannedappointments)
     pass = true
     if sum(plannedappointments |> @groupby(_.patientID) |> @map(length(unique(map(x->x.dayID,_)))) |> collect) != JuMP.objective_value(mp.model)
@@ -204,7 +210,7 @@ function daysused(mp,plannedappointments)
     return pass
 end
 
-"Validate solutions "
+"Validates solutions "
 function solutionvalidator(mp,sets,timeslots,visits,timeDelta)
     plannedappointments = extractsolution(mp,sets,timeslots,visits)
     pass = true
