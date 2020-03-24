@@ -151,7 +151,7 @@ end
 
 
 
-
+"adds columns from suproblems that have objective value beloew -EPSVALUE"
 function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblems,iteration::Int64,EPSVALUE)
     done = true
     for sub in values(subproblems.pricingproblems)
@@ -164,6 +164,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblem
     return done
 end
 
+"adds column from a single pricingproblems if the objective is below -EPSVALUE"
 function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64,EPSVALUE)
         if objective_value(pricingproblem.model) < -EPSVALUE
             println("Subproblem objective value = $(JuMP.objective_value(pricingproblem.model))")
@@ -173,7 +174,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
     return true
 end
 
-
+"adds column from a single pricingproblems"
 function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64)
 
     touchedconstraints = ConstraintRef[]
@@ -204,6 +205,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
     JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
 end
 
+"Adds column to master problem that uses the timeslots given in 'timeslots' for a patientgroup. Used to add columns from Heuristic"
 function addcolumntomaster!(masterproblem::Masterproblem,timeslots,patientgroup::Int64,iteration)
     touchedconstraints = ConstraintRef[]
     constraint_coefficients = Float64[]

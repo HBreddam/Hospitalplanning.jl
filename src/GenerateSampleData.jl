@@ -13,7 +13,7 @@ function generateTreatmentplan!(visits::IndexedTable,row,bestord,columns::Dict{S
 end
 
 """
-readPatientTable(path::String,sheet::String,columns::Dict{Symbol,String},mastercalendar::Dict{Int64,Date})
+    readPatientTable(path::String,sheet::String,columns::Dict{Symbol,String},mastercalendar::Dict{Int64,Date})
 
 Read aggregated table data of the format found in 'test/Sample data/PatientOverview_test.xlsx'.
 Produces a table of patients and a table of visists with the patients best.ord./deadline spread uniformly across everyday of the master calendar.
@@ -78,7 +78,7 @@ function readPatientTable(path,sheet,columns,mastercalendar)
     patients, visits
 end
 """
-readWorkPattern(path_resourceOverview,sheet_amb)
+    readWorkPattern(path_resourceOverview,sheet_amb)
 
 Creates a list of resources, a workpattern which is a list of timeslots in even and odd weeks, and lastly an empty list of timeslots. The data is take from sheet 'sheet_amb' in the excel file given in path_resourceOverview. The format for the files can be seen in 'test/Sample data/GUCHamb_Timeslot_test.xlsx'
 
@@ -114,7 +114,7 @@ end
 
 
 """
-readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
+    readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::String,)
 
 Adds additional resources to the list of resources and creates workpattern for these added to workpattern
 
@@ -153,7 +153,7 @@ function readWorkPattern!(resources,timeslots,workpattern,path::String,sheet::St
 end
 
 """
-generateCalendarFromPattern!(timeslots,resources::IndexedTable,workpattern,masterCalendar::Dict{Int64,Date},occupancyrate = 0)
+    generateCalendarFromPattern!(timeslots,resources::IndexedTable,workpattern,masterCalendar::Dict{Int64,Date},occupancyrate = 0)
 
 Populates the variable timeslots with appropriate timeslots from workpattern list for everyday in the mastercalendar. occupancyrate is the part of the timeslots that should be randomly booked (meaning that they are completely taken out of the planning problem). 0 means no booked, 0.5 means half of all slots are booked and 1 means all slots are booked.
 

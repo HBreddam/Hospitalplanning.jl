@@ -4,11 +4,11 @@ EPSVALUE = 0.1
 
 
 """
-columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
+    columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
 
 Builds the optimization problem and solves it.
-If the problem should only be set up and not solved, apply setuponly = true.
-The problem can be solved with multithreading by setting multithreading = true
+If the problem should only be set up and not solved, apply 'setuponly = true.'
+The problem can be solved with multithreading by setting 'multithreading = true'
 
 """
 function columngeneration(patients, visits, resources, timeslots, mastercalendar, timeDelta; setuponly = false, multithreading = false)
