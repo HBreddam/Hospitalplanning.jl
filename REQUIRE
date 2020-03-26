@@ -1,0 +1,11 @@
+julia 0.7
+CSV
+CSVFiles
+DataFrames
+Gurobi
+JuMP
+JuliaDB
+MathOptInterface
+Query
+TextParse
+XLSX

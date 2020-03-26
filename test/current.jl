@@ -1,18 +1,10 @@
-
 using Dates
-using JuMP
-using Gurobi
-
-using DataFrames
-using JuliaDB
-using Query
-using BenchmarkTools
 using Hospitalplanning
 HP = Hospitalplanning
 
 
 
-path = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/PatientOverview_test.xlsx"
+path = "./test/Sample data/PatientOverview_test.xlsx"
 sheet = "Sheet1"
 startdate = Date("2019-01-01")
 enddate = Date("2019-02-01")
@@ -22,45 +14,50 @@ columns = Dict(:Consultation => "Consultation" , :Telefon =>"Telephone" , :TTE =
 patients, visits = HP.readPatientTable(path,sheet,columns,mastercalendar)
 
 
-path_resourceOverview = "C:/Users/hebb/.julia/dev/Hospitalplanning/test/Sample data/GUCHamb_Timeslot_test.xlsx"
+path_resourceOverview = "./test/Sample data/GUCHamb_Timeslot_test.xlsx"
 sheet_amb = "GUCH AMB"
 sheet_resources = "External"
-
 GUCHAmb_resources,timeslots,workpattern = Hospitalplanning.readWorkPattern(path_resourceOverview,sheet_amb)
 external_resources = Hospitalplanning.readWorkPattern!(GUCHAmb_resources,timeslots,workpattern,path_resourceOverview,sheet_resources,)
-GUCHAmb_resources
-timeDelta
+path_TimeDelta = "./test/Sample data/GUCHamb_timeDelta.csv"
+timeDelta = HP.loadTimeDelta(path_TimeDelta)
 HP.generateCalendarFromPattern!(timeslots,GUCHAmb_resources,workpattern,mastercalendar,0.5)
 
-submastercalendar = HP.MasterCalendar(mastercalendar,startdate,Date("2019-06-15"))
-visits
-mp, subs,sets = HP.columngeneration(patients,visits,GUCHAmb_resources,timeslots,mastercalendar,timeDelta; multithreading = true,setuponly=false)
 
-test = HP.extractsolution(mp,sets,timeslots,visits)
-HP.findvisit(visits,"AEKG",33)
-test|> @filter(_.pattern == 179)
-visits[105]
-visits |> @filter(_.patientID == 33)
-testpg =  copy(sets.Pg)
-tempPg = sets.Pg |>@map(_.patients) |> collect
-sets.Pg[1]
-tempPg[1]
-x = pop!(tempPg[1])
-timeslots[100].type
-function findvisit(visits,type,patient)
-   result = @from i in visits begin
-      @where i.req_type == timeslots[100].type && i.patientID == x
-      @select i.intID
-      @collect
-   end
-   if length(result)== 1
-      return first(result)
-   end
-   @warn "Multiple visits of same type found"
-   return -1
+mp, subs,sets = HP.columngeneration(patients,visits,GUCHAmb_resources,timeslots,mastercalendar,timeDelta; multithreading = false,setuponly=false)
+
+solution = HP.extractsolution(mp,sets,timeslots,visits)
+HP.save(solution,"./solution.csv")
+
+
+
+
+
+import Pkg
+const PT = Pkg.Types
+
+Pkg.activate(pwd())             # current directory as the project
+ctx = PT.Context()
+pkg = ctx.env.pkg
+if pkg ≡ nothing
+    @error "Not in a package, I won't generate REQUIRE."
+    exit(1)
+else
+    @info "found package" pkg = pkg
 end
-findvisit(visits,timeslots[100].type, x)
-visits
+
+deps = PT.get_deps(ctx)
+non_std_deps = sort(collect(setdiff(keys(deps), values(ctx.stdlibs))))
+
+open("REQUIRE", "w") do io
+    println(io, "julia 0.7")
+    for d in non_std_deps
+        println(io, d)
+        @info "listing $d"
+    end
+end
+
+
 #=-----------------------1--------------------
 
 

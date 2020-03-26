@@ -1,5 +1,5 @@
 """
-MasterCalendar(startdate::Date,enddate::Date)
+    MasterCalendar(startdate::Date,enddate::Date)
 
 Produces a mastercalendar (Dict{Int64,Date}) of weekdays where clinic is open between the start and enddate
 # Examples
@@ -15,9 +15,9 @@ function MasterCalendar(startdate::Date,enddate::Date)
     Dict((date-startdate).value+1 => date for date = filter(td -> dayofweek(td) <= 5, startdate:Day(1):enddate))
 end
 """
-MasterCalendar(mastercalendar::Dict{Int64,Date},startdate,enddate)
+    MasterCalendar(mastercalendar::Dict{Int64,Date},startdate,enddate)
 
-Produces a mastercalendar (Dict{Int64,Date}) of weekdays where clinic is open.
+Produces a mastercalendar ('Dict{Int64,Date}') of weekdays where clinic is open.
 
 # Examples
 ```julia-repl

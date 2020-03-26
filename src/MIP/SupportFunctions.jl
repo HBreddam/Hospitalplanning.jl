@@ -46,6 +46,7 @@ end
 function buildDp(resources,visits)
     visits |> @groupjoin(resources,_.req_type,_.type, (v=_.intID,p=_.patientID,d=map(x->x.intID,__))) |> @groupby(_.p) |>@map((p = key(_),d = (collect(Iterators.flatten(_.d)) ))) |>NDSparse
 end
+
 "Helper function for grouping patients. Produces a tuple of the patients group"
 function patientgroup(visits,Vp,id)
    tempvisits = visits[Vp[id].v]

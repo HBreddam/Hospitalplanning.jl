@@ -1,5 +1,5 @@
 
-
+"Sets up the master problem"
 function setupmaster(subproblems,patients,resources,timeslots,subMastercalendar,sets)
     env = Gurobi.Env()
     Gurobi.setparams!(env, OutputFlag=0)
@@ -78,7 +78,7 @@ function sortvisit(V_input,Tdelta_input)
     end
     result
 end
-
+"used to check if a timeslot on dayID, with startTime and endTime is feasible with the current already plannedslots for the patient, such that there are no overlap and the visit order given in timedelta is kept."
 function isfree(plannedslots,timeDelta,type,dayID,startTime,endTime)
     for p in plannedslots
         if p.dayID == dayID && ((startTime< p.endTime && endTime > p.startTime) || (haskey(timeDelta,(type,p.type)) && endTime > p.startTime))
@@ -87,6 +87,8 @@ function isfree(plannedslots,timeDelta,type,dayID,startTime,endTime)
     end
     true
 end
+
+"Checks if the day with dayID, is already used in the plan, such that the patient is already at hospital"
 function daystoopen(plannedslots,dayID)
     if dayID in (x->x.dayID).(plannedslots)
         return 0
@@ -94,7 +96,7 @@ function daystoopen(plannedslots,dayID)
         return 1
     end
 end
-
+"Calculates the latest day that a visit of the type 'type' can be scheduled according to the data of timeDelta"
 function lastestday(plannedslots,timeDelta,type)
     if length(plannedslots) > 0
         x = (x-> x.dayID -get(timeDelta,(type,x.type),(delta = -1,)).delta).(plannedslots)
@@ -103,6 +105,8 @@ function lastestday(plannedslots,timeDelta,type)
     return 100000
 end
 
+
+"Builds schedule using a greedy heuristic. For each type of visit (in sorted order), the algorithm places the last one and then plans the most constrained visit (according to the already planned visits) next, until all visits are planned."
 function buildschedule(timeslots,appointments,types, timeDelta)
     plannedslots = []
     for type in types
@@ -122,7 +126,7 @@ function buildschedule(timeslots,appointments,types, timeDelta)
     return plannedslots
 end
 
-
+"Generates initial columns for the masterproblem using the buildschedule greedy heuristic that ensures that no columns overlap."
 function generateInitialColumns!(masterproblem::Masterproblem,sets,timeslots,timeDelta)
 
     appointments = table((timeslots |> @filter(_.booked) |> @map((timeslotID = _.timeslotID ,resourceID=_.resourceID ,visitID= 0)) |> collect);pkey=[:timeslotID])
@@ -147,7 +151,7 @@ end
 
 
 
-
+"adds columns from suproblems that have objective value beloew -EPSVALUE"
 function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblems,iteration::Int64,EPSVALUE)
     done = true
     for sub in values(subproblems.pricingproblems)
@@ -160,6 +164,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,subproblems::Subproblem
     return done
 end
 
+"adds column from a single pricingproblems if the objective is below -EPSVALUE"
 function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64,EPSVALUE)
         if objective_value(pricingproblem.model) < -EPSVALUE
             println("Subproblem objective value = $(JuMP.objective_value(pricingproblem.model))")
@@ -169,7 +174,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
     return true
 end
 
-
+"adds column from a single pricingproblems"
 function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::PricingProblem,iteration::Int64)
 
     touchedconstraints = ConstraintRef[]
@@ -200,6 +205,7 @@ function addcolumntomaster!(masterproblem::Masterproblem,pricingproblem::Pricing
     JuMP.set_normalized_coefficient.(touchedconstraints,masterproblem.lambda[end],constraint_coefficients)
 end
 
+"Adds column to master problem that uses the timeslots given in 'timeslots' for a patientgroup. Used to add columns from Heuristic"
 function addcolumntomaster!(masterproblem::Masterproblem,timeslots,patientgroup::Int64,iteration)
     touchedconstraints = ConstraintRef[]
     constraint_coefficients = Float64[]
